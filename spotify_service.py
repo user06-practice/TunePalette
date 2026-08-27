@@ -67,6 +67,22 @@ class SpotifyService:
 
         return tracks
 
+    def get_current_account(self):
+        user = self.spotify.current_user()
+
+        account_id = user.get("account_id")
+
+        if not account_id:
+            raise SpotifyApiSchemaError(
+                "Spotifyユーザー情報に 'account_id' がありません。"
+                "Spotify APIの仕様変更を確認してください。"
+            )
+
+        return {
+            "account_id": account_id,
+            "display_name": user.get("display_name", "")
+        }
+
     @staticmethod
     def _normalize_track(track):
         return {

@@ -15,6 +15,7 @@ SCOPE = (
     "playlist-read-private "
     "playlist-modify-private "
     "playlist-modify-public"
+    "user-read-private "
 )
 
 
