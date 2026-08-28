@@ -88,6 +88,68 @@ class SpotifyServiceTest(unittest.TestCase):
         with self.assertRaises(SpotifyApiSchemaError):
             service.get_playlist_tracks("playlist123")
 
+    @patch("spotify_service.spotipy.Spotify")
+    def test_get_playlist_tracks_multiple_pages(self, mock_spotify_class):
+        mock_spotify = MagicMock()
+        mock_spotify_class.return_value = mock_spotify
+
+        first_page = {
+            "items": [
+                {
+                    "item": {
+                        "id": "track1",
+                        "name": "Song 1",
+                        "artists": [{"name": "Artist 1"}],
+                        "uri": "spotify:track:track1"
+                    }
+                },
+                {
+                    "item": {
+                        "id": "track2",
+                        "name": "Song 2",
+                        "artists": [{"name": "Artist 2"}],
+                        "uri": "spotify:track:track2"
+                    }
+                }
+            ]
+        }
+
+        second_page = {
+            "items": [
+                {
+                    "item": {
+                        "id": "track3",
+                        "name": "Song 3",
+                        "artists": [{"name": "Artist 3"}],
+                        "uri": "spotify:track:track3"
+                    }
+                }
+            ]
+        }
+
+        mock_spotify.playlist_items.side_effect = [
+            first_page,
+            second_page
+        ]
+
+        service = SpotifyService(auth_manager=None)
+
+        tracks = service.get_playlist_tracks(
+            "playlist123",
+            limit=2
+        )
+
+        self.assertEqual(len(tracks), 3)
+
+        self.assertEqual(tracks[0]["name"], "Song 1")
+        self.assertEqual(tracks[1]["name"], "Song 2")
+        self.assertEqual(tracks[2]["name"], "Song 3")
+
+        self.assertEqual(
+            mock_spotify.playlist_items.call_count,
+            2
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

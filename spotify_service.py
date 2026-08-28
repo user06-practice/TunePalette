@@ -36,11 +36,47 @@ class SpotifyService:
         return playlists
 
     def get_playlist_tracks(self, playlist_id, limit=50):
-        results = self.spotify.playlist_items(
-            playlist_id,
-            limit=limit,
-            additional_types=("track",)
-        )
+        tracks = []
+        offset = 0
+
+        while True:
+            results = self.spotify.playlist_items(
+                playlist_id,
+                limit=limit,
+                offset=offset,
+                additional_types=("track",)
+            )
+
+            playlist_items = results["items"]
+
+            for playlist_item in playlist_items:
+
+                # 2026年以降の仕様では "item"
+                # 旧仕様では "track"
+                if "item" in playlist_item:
+                    track = playlist_item["item"]
+
+                elif "track" in playlist_item:
+                    track = playlist_item["track"]
+
+                else:
+                    raise SpotifyApiSchemaError(
+                        "Spotify playlist itemに 'item' または 'track' がありません。"
+                        "Spotify APIの仕様変更を確認してください。"
+                    )
+
+                if track is None:
+                    continue
+
+                tracks.append(self._normalize_track(track))
+
+            # 取得件数がlimit未満なら、これが最後のページ
+            if len(playlist_items) < limit:
+                break
+
+            offset += limit
+
+        return tracks
 
         tracks = []
 
