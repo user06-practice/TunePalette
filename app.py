@@ -6,6 +6,12 @@ from spotipy.oauth2 import SpotifyOAuth
 from spotify_service import SpotifyService
 from spotipy.cache_handler import MemoryCacheHandler
 from functools import wraps
+from music_library import MusicLibrary
+from playlist_generator import PlaylistGenerator
+from lastfm_service import LastfmService
+from discovery_service import DiscoveryService
+from mood_service import MoodService
+
 
 
 # .env の内容を読み込む
@@ -37,6 +43,25 @@ spotify_oauth = SpotifyOAuth(
 )
 
 spotify_service = SpotifyService(spotify_oauth)
+
+music_library = MusicLibrary(
+    spotify_service,
+    os.getenv("SPOTIFY_FAVORITE_PLAYLIST_ID")
+)
+
+lastfm_service = LastfmService(
+    os.getenv("LASTFM_API_KEY")
+)
+
+mood_service = MoodService(
+    lastfm_service
+)
+
+discovery_service = DiscoveryService(
+    music_library,
+    lastfm_service,
+    spotify_service
+)
 
 def login_required(view_function):
     @wraps(view_function)
@@ -181,7 +206,427 @@ def whoami():
         f"<p>account_id: {account['account_id']}</p>"
     )
 
+@app.route("/favorites")
+@login_required
+def favorites():
+    tracks = music_library.get_favorite_tracks()
 
+    output = f"<h1>FAVORITE ({len(tracks)}曲)</h1>"
+
+    for track in tracks:
+        track_name = track["name"]
+        artist_name = ", ".join(track["artists"])
+
+        duration_ms = track["duration_ms"]
+        release_year = track["release_year"]
+
+        if duration_ms is not None:
+            total_seconds = duration_ms // 1000
+            minutes = total_seconds // 60
+            seconds = total_seconds % 60
+            duration_text = f"{minutes}:{seconds:02d}"
+        else:
+            duration_text = "不明"
+
+        if release_year is not None:
+            year_text = f"{release_year}年"
+        else:
+            year_text = "年代不明"
+
+        output += (
+            f"<p>"
+            f"{artist_name} - {track_name}"
+            f" - {duration_text}"
+            f" - {year_text}"
+            f"</p>"
+        )
+
+    return output
+
+@app.route("/favorite-preview")
+@login_required
+def favorite_preview():
+    tracks = music_library.get_favorite_tracks()
+
+    targets = PlaylistGenerator.get_source_time_targets(
+        total_minutes=60,
+        discovery_ratio=40
+    )
+
+    selected_tracks = PlaylistGenerator.select_favorite_tracks(
+        tracks=tracks,
+        target_ms=targets["favorite_ms"],
+        recency=50
+    )
+
+    total_ms = sum(
+        track["duration_ms"]
+        for track in selected_tracks
+    )
+
+    total_seconds = total_ms // 1000
+    total_minutes = total_seconds // 60
+    remaining_seconds = total_seconds % 60
+
+    output = (
+        "<h1>FAVORITE 選曲プレビュー</h1>"
+        "<p>設定: 60分 / 知らない曲40% / recency 50</p>"
+        "<p>FAVORITE目標: 36:00</p>"
+        f"<p>実際: {total_minutes}:{remaining_seconds:02d}</p>"
+        f"<p>曲数: {len(selected_tracks)}曲</p>"
+    )
+
+    for track in selected_tracks:
+        duration_ms = track["duration_ms"]
+        seconds = duration_ms // 1000
+
+        duration_text = (
+            f"{seconds // 60}:{seconds % 60:02d}"
+        )
+
+        artist_name = ", ".join(track["artists"])
+
+        output += (
+            f"<p>"
+            f"{artist_name} - {track['name']}"
+            f" - {duration_text}"
+            f" - {track['release_year']}年"
+            f"</p>"
+        )
+
+    return output
+
+@app.route("/lastfm-similar")
+@login_required
+def lastfm_similar():
+    artists = lastfm_service.get_similar_artists(
+        "Sum 41",
+        limit=10
+    )
+
+    output = "<h1>Sum 41 に似ているアーティスト</h1>"
+
+    for artist in artists:
+        name = artist["name"]
+        similarity = artist["similarity"]
+
+        output += (
+            f"<p>"
+            f"{name} - 類似度 {similarity:.3f}"
+            f"</p>"
+        )
+
+    return output
+
+@app.route("/discovery-artists")
+@login_required
+def discovery_artists():
+    candidates = discovery_service.get_candidate_artists(
+        seed_limit=5,
+        similar_limit=10
+    )
+
+    output = (
+        "<h1>DISCOVERED候補アーティスト</h1>"
+        f"<p>候補数: {len(candidates)}組</p>"
+    )
+
+    candidates = sorted(
+        candidates,
+        key=lambda artist: artist["similarity"],
+        reverse=True
+    )
+
+    for artist in candidates:
+        source_text = ", ".join(
+            artist["source_artists"]
+        )
+
+        output += (
+            f"<p>"
+            f"<strong>{artist['name']}</strong>"
+            f" - 類似度 {artist['similarity']:.3f}"
+            f" - 起点: {source_text}"
+            f"</p>"
+        )
+
+    return output
+
+@app.route("/discovery-tracks")
+@login_required
+def discovery_tracks():
+    candidate_artists = (
+        discovery_service.get_candidate_artists(
+            seed_limit=5,
+            similar_limit=10
+        )
+    )
+
+    candidate_tracks = (
+        discovery_service.get_candidate_tracks(
+            candidate_artists,
+            artist_limit=10,
+            tracks_per_artist=10
+        )
+    )
+
+    output = (
+        "<h1>DISCOVERED候補曲</h1>"
+        f"<p>候補アーティスト数: {len(candidate_artists)}組</p>"
+        f"<p>候補曲数: {len(candidate_tracks)}曲</p>"
+    )
+
+    for track in candidate_tracks:
+        artist_name = ", ".join(
+            track["artists"]
+        )
+
+        source_text = ", ".join(
+            track["source_artists"]
+        )
+
+        release_year = track["release_year"]
+
+        if release_year is None:
+            year_text = "年代不明"
+        else:
+            year_text = f"{release_year}年"
+
+        output += (
+            f"<p>"
+            f"<strong>{artist_name} - {track['name']}</strong>"
+            f" - {year_text}"
+            f" - 類似度 {track['similarity']:.3f}"
+            f" - 起点: {source_text}"
+            f"</p>"
+        )
+
+    return output
+
+@app.route("/discovery-preview")
+@login_required
+def discovery_preview():
+    candidate_artists = (
+        discovery_service.get_candidate_artists(
+            seed_limit=5,
+            similar_limit=10
+        )
+    )
+
+    candidate_tracks = (
+        discovery_service.get_candidate_tracks(
+            candidate_artists,
+            artist_limit=10,
+            tracks_per_artist=10
+        )
+    )
+
+    targets = PlaylistGenerator.get_source_time_targets(
+        total_minutes=60,
+        discovery_ratio=40
+    )
+
+    selected_tracks = (
+        PlaylistGenerator.select_discovered_tracks(
+            tracks=candidate_tracks,
+            target_ms=targets["discovered_ms"],
+            recency=50
+        )
+    )
+
+    total_ms = sum(
+        track["duration_ms"]
+        for track in selected_tracks
+    )
+
+    total_seconds = total_ms // 1000
+    minutes = total_seconds // 60
+    seconds = total_seconds % 60
+
+    output = (
+        "<h1>DISCOVERED 選曲プレビュー</h1>"
+        "<p>設定: 60分 / 知らない曲40% / recency 50</p>"
+        "<p>DISCOVERED目標: 24:00</p>"
+        f"<p>実際: {minutes}:{seconds:02d}</p>"
+        f"<p>候補曲数: {len(candidate_tracks)}曲</p>"
+        f"<p>選曲数: {len(selected_tracks)}曲</p>"
+    )
+
+    for track in selected_tracks:
+        duration_seconds = track["duration_ms"] // 1000
+        duration_text = (
+            f"{duration_seconds // 60}:"
+            f"{duration_seconds % 60:02d}"
+        )
+
+        artist_name = ", ".join(
+            track["artists"]
+        )
+
+        output += (
+            f"<p>"
+            f"{artist_name} - {track['name']}"
+            f" - {duration_text}"
+            f" - {track['release_year']}年"
+            f"</p>"
+        )
+
+    return output
+
+@app.route("/playlist-preview")
+@login_required
+def playlist_preview():
+    # FAVORITEを取得
+    favorite_candidates = (
+        music_library.get_favorite_tracks()
+    )
+
+    # DISCOVERED候補アーティストを取得
+    candidate_artists = (
+        discovery_service.get_candidate_artists(
+            seed_limit=5,
+            similar_limit=10
+        )
+    )
+
+    # DISCOVERED候補曲を取得
+    discovered_candidates = (
+        discovery_service.get_candidate_tracks(
+            candidate_artists,
+            artist_limit=10,
+            tracks_per_artist=10
+        )
+    )
+
+    # 60分・知らない曲40%の時間配分
+    targets = PlaylistGenerator.get_source_time_targets(
+        total_minutes=60,
+        discovery_ratio=40
+    )
+
+    # FAVORITEを約36分選曲
+    favorite_tracks = (
+        PlaylistGenerator.select_favorite_tracks(
+            tracks=favorite_candidates,
+            target_ms=targets["favorite_ms"],
+            recency=50
+        )
+    )
+
+    # DISCOVEREDを約24分選曲
+    discovered_tracks = (
+        PlaylistGenerator.select_discovered_tracks(
+            tracks=discovered_candidates,
+            target_ms=targets["discovered_ms"],
+            recency=50
+        )
+    )
+
+    # 2種類を混ぜる
+    mixed_tracks = PlaylistGenerator.mix_tracks(
+        favorite_tracks,
+        discovered_tracks
+    )
+
+    # 実際の時間を計算
+    favorite_ms = sum(
+        track["duration_ms"]
+        for track in favorite_tracks
+    )
+
+    discovered_ms = sum(
+        track["duration_ms"]
+        for track in discovered_tracks
+    )
+
+    total_ms = favorite_ms + discovered_ms
+
+    def format_duration(duration_ms):
+        total_seconds = duration_ms // 1000
+        minutes = total_seconds // 60
+        seconds = total_seconds % 60
+
+        return f"{minutes}:{seconds:02d}"
+
+    output = (
+        "<h1>TunePalette プレイリストプレビュー</h1>"
+        "<p>設定: 60分 / 知らない曲40% / recency 50</p>"
+        f"<p>FAVORITE: "
+        f"{format_duration(favorite_ms)} "
+        f"({len(favorite_tracks)}曲)</p>"
+        f"<p>DISCOVERED: "
+        f"{format_duration(discovered_ms)} "
+        f"({len(discovered_tracks)}曲)</p>"
+        f"<p><strong>合計: "
+        f"{format_duration(total_ms)} "
+        f"({len(mixed_tracks)}曲)</strong></p>"
+        "<hr>"
+    )
+
+    for track in mixed_tracks:
+        artist_name = ", ".join(
+            track["artists"]
+        )
+
+        duration_text = format_duration(
+            track["duration_ms"]
+        )
+
+        release_year = track["release_year"]
+
+        if release_year is None:
+            year_text = "年代不明"
+        else:
+            year_text = f"{release_year}年"
+
+        output += (
+            f"<p>"
+            f"[{track['source']}] "
+            f"<strong>{artist_name} - {track['name']}</strong>"
+            f" - {duration_text}"
+            f" - {year_text}"
+            f"</p>"
+        )
+
+    return output
+
+@app.route("/mood-preview")
+@login_required
+def mood_preview():
+    tracks = music_library.get_favorite_tracks()
+
+    # 今回は確認用に先頭5曲だけ
+    sample_tracks = tracks[:5]
+
+    output = "<h1>FAVORITE mood_score確認</h1>"
+
+    for track in sample_tracks:
+        analyzed = mood_service.analyze_track(track)
+
+        artist_name = ", ".join(
+            analyzed["artists"]
+        )
+
+        mood_score = analyzed["mood_score"]
+
+        if mood_score is None:
+            score_text = "判定不可"
+        else:
+            score_text = f"{mood_score:.1f}"
+
+        tags_text = ", ".join(
+            analyzed["mood_tags"]
+        )
+
+        output += (
+            f"<h3>{artist_name} - {analyzed['name']}</h3>"
+            f"<p>mood_score: {score_text}</p>"
+            f"<p>mood_tag_source: {analyzed['mood_tag_source']}</p>"
+            f"<p>Last.fm tags: {tags_text}</p>"
+            f"<hr>"
+        )
+
+    return output
 
 if __name__ == "__main__":
     app.run(debug=True)

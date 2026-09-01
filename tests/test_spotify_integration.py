@@ -91,3 +91,82 @@ class SpotifyIntegrationTest(unittest.TestCase):
         self.skipTest(
             "先頭10プレイリスト内に51曲以上のプレイリストがありません。"
         )
+
+    def test_search_real_tracks_by_artist(self):
+        tracks = self.service.search_tracks_by_artist(
+            "Simple Plan",
+            limit=10
+        )
+
+        self.assertGreater(
+            len(tracks),
+            0
+        )
+
+        for track in tracks:
+            self.assertTrue(track["id"])
+            self.assertTrue(track["name"])
+            self.assertTrue(track["artists"])
+            self.assertTrue(track["uri"])
+            self.assertIsNotNone(
+                track["duration_ms"]
+            )
+
+    @unittest.skipUnless(
+        os.getenv("RUN_SPOTIFY_WRITE_TESTS") == "1",
+        "Spotify書き込み統合テストは通常は実行しません。"
+    )
+    def test_create_real_playlist_and_add_tracks(self):
+        favorite_playlist_id = os.getenv(
+            "SPOTIFY_FAVORITE_PLAYLIST_ID"
+        )
+
+        self.assertTrue(
+            favorite_playlist_id,
+            "SPOTIFY_FAVORITE_PLAYLIST_IDが設定されていません。"
+        )
+
+        favorite_tracks = self.service.get_playlist_tracks(
+            favorite_playlist_id,
+            limit=10
+        )
+
+        if len(favorite_tracks) < 2:
+            self.skipTest(
+                "FAVORITEにテスト用の曲が2曲以上ありません。"
+            )
+
+        test_tracks = favorite_tracks[:2]
+
+        playlist = self.service.create_playlist(
+            name="TunePalette Integration Test",
+            public=False,
+            description="TunePalette Spotify API write test"
+        )
+
+        self.assertTrue(playlist["id"])
+
+        self.service.add_tracks_to_playlist(
+            playlist["id"],
+            test_tracks
+        )
+
+        saved_tracks = self.service.get_playlist_tracks(
+            playlist["id"],
+            limit=10
+        )
+
+        self.assertEqual(
+            len(saved_tracks),
+            2
+        )
+
+        self.assertEqual(
+            saved_tracks[0]["id"],
+            test_tracks[0]["id"]
+        )
+
+        self.assertEqual(
+            saved_tracks[1]["id"],
+            test_tracks[1]["id"]
+        )

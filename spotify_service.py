@@ -121,6 +121,18 @@ class SpotifyService:
 
     @staticmethod
     def _normalize_track(track):
+        album = track.get("album") or {}
+
+        release_date = album.get("release_date")
+        release_year = None
+
+        if (
+                release_date
+                and len(release_date) >= 4
+                and release_date[:4].isdigit()
+        ):
+            release_year = int(release_date[:4])
+
         return {
             "id": track.get("id"),
             "name": track.get("name", ""),
@@ -128,5 +140,102 @@ class SpotifyService:
                 artist.get("name", "")
                 for artist in track.get("artists", [])
             ],
-            "uri": track.get("uri")
+            "uri": track.get("uri"),
+            "duration_ms": track.get("duration_ms"),
+            "release_date": release_date,
+            "release_year": release_year,
         }
+
+    def search_tracks_by_artist(self, artist_name, limit=10):
+        if not artist_name:
+            raise ValueError(
+                "artist_nameを指定してください。"
+            )
+
+        if not 1 <= limit <= 10:
+            raise ValueError(
+                "limitは1～10で指定してください。"
+            )
+
+        results = self.spotify.search(
+            q=f'artist:"{artist_name}"',
+            type="track",
+            limit=limit
+        )
+
+        if "tracks" not in results:
+            raise SpotifyApiSchemaError(
+                "Spotify検索結果に 'tracks' がありません。"
+                "Spotify APIの仕様変更を確認してください。"
+            )
+
+        if "items" not in results["tracks"]:
+            raise SpotifyApiSchemaError(
+                "Spotify検索結果の tracks に 'items' がありません。"
+                "Spotify APIの仕様変更を確認してください。"
+            )
+
+        return [
+            self._normalize_track(track)
+            for track in results["tracks"]["items"]
+        ]
+
+    def create_playlist(
+            self,
+            name,
+            public=False,
+            description=""
+    ):
+        if not name:
+            raise ValueError(
+                "プレイリスト名を指定してください。"
+            )
+
+        result = self.spotify.current_user_playlist_create(
+            name=name,
+            public=public,
+            description=description
+        )
+
+        if "id" not in result:
+            raise SpotifyApiSchemaError(
+                "Spotifyのプレイリスト作成結果に 'id' がありません。"
+                "API仕様変更を確認してください。"
+            )
+
+        return {
+            "id": result["id"],
+            "name": result.get("name", name),
+            "uri": result.get("uri"),
+        }
+
+    def add_tracks_to_playlist(
+            self,
+            playlist_id,
+            tracks
+    ):
+        if not playlist_id:
+            raise ValueError(
+                "playlist_idを指定してください。"
+            )
+
+        uris = []
+
+        for track in tracks:
+            uri = track.get("uri")
+
+            if not uri:
+                raise ValueError(
+                    "Spotify URIがない曲が含まれています。"
+                )
+
+            uris.append(uri)
+
+        # Spotifyは1回につき最大100件
+        for start in range(0, len(uris), 100):
+            batch = uris[start:start + 100]
+
+            self.spotify.playlist_add_items(
+                playlist_id,
+                batch
+            )
