@@ -1,5 +1,4 @@
 import os
-from datetime import datetime
 
 from flask import (
     Flask,
@@ -694,42 +693,49 @@ def create_playlist():
             500
         )
 
-
     # -------------------------
-    # Spotifyプレイリスト作成
-    # -------------------------
-
-    created_at = datetime.now().strftime(
-        "%Y-%m-%d %H:%M"
-    )
-
-    playlist_name = (
-        f"TunePalette {created_at}"
-    )
-
-    description = (
-        f"TunePaletteで自動生成 "
-        f"| mood {mood} "
-        f"| discovery {discovery_ratio}% "
-        f"| recency {recency} "
-        f"| {duration}min"
-    )
-
-    playlist = spotify_service.create_playlist(
-        name=playlist_name,
-        public=False,
-        description=description
-    )
-
-
-    # -------------------------
-    # 選ばれた曲をSpotifyへ追加
+    # TunePaletteを取得
     # -------------------------
 
-    spotify_service.add_tracks_to_playlist(
-        playlist_id=playlist["id"],
-        tracks=mixed_tracks
+    playlist_name = "TunePalette"
+
+    playlist = (
+        spotify_service.find_playlist_by_name(
+            playlist_name
+        )
     )
+
+    # -------------------------
+    # 初回だけ新規作成
+    # -------------------------
+
+    if playlist is None:
+
+        playlist = spotify_service.create_playlist(
+            name=playlist_name,
+            public=False,
+            description=(
+                "TunePaletteで自動生成した"
+                "プレイリスト"
+            )
+        )
+
+        spotify_service.add_tracks_to_playlist(
+            playlist_id=playlist["id"],
+            tracks=mixed_tracks
+        )
+
+
+    # -------------------------
+    # 2回目以降は全曲置換
+    # -------------------------
+
+    else:
+
+        spotify_service.replace_playlist_tracks(
+            playlist_id=playlist["id"],
+            tracks=mixed_tracks
+        )
 
 
     # POSTの結果を直接表示せず、
@@ -752,8 +758,8 @@ def playlist_created(playlist_id):
     )
 
     return (
-        "<h1>プレイリストを作成しました！</h1>"
-        "<p>TunePaletteの選曲がSpotifyに追加されました。</p>"
+        "<h1>TunePaletteを更新しました！</h1>"
+        "<p>新しい選曲がSpotifyに反映されました。</p>"
         f'<p>'
         f'<a href="{spotify_url}" target="_blank">'
         f'Spotifyで開く'

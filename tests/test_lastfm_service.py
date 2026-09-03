@@ -233,6 +233,36 @@ class LastfmServiceTest(unittest.TestCase):
             )
 
     @patch("lastfm_service.requests.get")
+    def test_get_artist_top_tags_returns_empty_when_artist_not_found(
+            self,
+            mock_get
+    ):
+        response = MagicMock()
+
+        response.json.return_value = {
+            "error": 6,
+            "message": (
+                "The artist you supplied "
+                "could not be found"
+            )
+        }
+
+        mock_get.return_value = response
+
+        service = LastfmService(
+            api_key="test-api-key"
+        )
+
+        tags = service.get_artist_top_tags(
+            "Unknown Artist"
+        )
+
+        self.assertEqual(
+            tags,
+            []
+        )
+
+    @patch("lastfm_service.requests.get")
     def test_get_artist_top_tags_returns_empty_on_rate_limit(
             self,
             mock_get

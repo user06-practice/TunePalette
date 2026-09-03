@@ -35,6 +35,44 @@ class SpotifyService:
 
         return playlists
 
+    def find_playlist_by_name(
+            self,
+            playlist_name
+    ):
+        if not playlist_name:
+            raise ValueError(
+                "playlist_nameを指定してください。"
+            )
+
+        limit = 50
+        offset = 0
+
+        while True:
+            results = (
+                self.spotify.current_user_playlists(
+                    limit=limit,
+                    offset=offset
+                )
+            )
+
+            playlists = results["items"]
+
+            for playlist in playlists:
+                if playlist.get("name") == playlist_name:
+                    return {
+                        "id": playlist["id"],
+                        "name": playlist["name"],
+                        "uri": playlist.get("uri"),
+                    }
+
+            # 50件未満なら最後のページ
+            if len(playlists) < limit:
+                break
+
+            offset += limit
+
+        return None
+
     def get_playlist_tracks(self, playlist_id, limit=50):
         tracks = []
         offset = 0
@@ -234,6 +272,53 @@ class SpotifyService:
         # Spotifyは1回につき最大100件
         for start in range(0, len(uris), 100):
             batch = uris[start:start + 100]
+
+            self.spotify.playlist_add_items(
+                playlist_id,
+                batch
+            )
+
+    def replace_playlist_tracks(
+            self,
+            playlist_id,
+            tracks
+    ):
+        if not playlist_id:
+            raise ValueError(
+                "playlist_idを指定してください。"
+            )
+
+        uris = []
+
+        for track in tracks:
+            uri = track.get("uri")
+
+            if not uri:
+                raise ValueError(
+                    "Spotify URIがない曲が含まれています。"
+                )
+
+            uris.append(uri)
+
+        # 最初の100曲で、
+        # プレイリストの既存内容をすべて置き換える
+        first_batch = uris[:100]
+
+        self.spotify.playlist_replace_items(
+            playlist_id,
+            first_batch
+        )
+
+        # 101曲以上ある場合は、
+        # 残りを100曲ずつ追加する
+        for start in range(
+                100,
+                len(uris),
+                100
+        ):
+            batch = uris[
+                start:start + 100
+            ]
 
             self.spotify.playlist_add_items(
                 playlist_id,

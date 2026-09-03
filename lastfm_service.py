@@ -117,7 +117,16 @@ class LastfmService:
                 29,  # Rate limit exceeded
             }
 
-            if error_code in recoverable_errors:
+            resource_not_found = (
+                    error_code == 6
+                    and "could not be found"
+                    in error_message.casefold()
+            )
+
+            if (
+                    error_code in recoverable_errors
+                    or resource_not_found
+            ):
                 print(
                     f"Last.fm artistタグ取得をスキップ: "
                     f"{error_code} {error_message}"
@@ -207,7 +216,16 @@ class LastfmService:
                 29,  # Rate limit exceeded
             }
 
-            if error_code in recoverable_errors:
+            resource_not_found = (
+                    error_code == 6
+                    and "could not be found"
+                    in error_message.casefold()
+            )
+
+            if (
+                    error_code in recoverable_errors
+                    or resource_not_found
+            ):
                 print(
                     f"Last.fm artistタグ取得をスキップ: "
                     f"{error_code} {error_message}"

@@ -334,6 +334,152 @@ class SpotifyServiceTest(unittest.TestCase):
             2
         )
 
+    @patch("spotify_service.spotipy.Spotify")
+    def test_find_playlist_by_name(
+            self,
+            mock_spotify_class
+    ):
+        mock_spotify = MagicMock()
+        mock_spotify_class.return_value = mock_spotify
+
+        mock_spotify.current_user_playlists.return_value = {
+            "items": [
+                {
+                    "id": "other123",
+                    "name": "Other Playlist",
+                    "uri": "spotify:playlist:other123",
+                },
+                {
+                    "id": "tunepalette123",
+                    "name": "TunePalette",
+                    "uri": "spotify:playlist:tunepalette123",
+                },
+            ]
+        }
+
+        service = SpotifyService(
+            auth_manager=None
+        )
+
+        playlist = service.find_playlist_by_name(
+            "TunePalette"
+        )
+
+        self.assertEqual(
+            playlist["id"],
+            "tunepalette123"
+        )
+
+        self.assertEqual(
+            playlist["name"],
+            "TunePalette"
+        )
+
+    @patch("spotify_service.spotipy.Spotify")
+    def test_find_playlist_by_name_returns_none(
+            self,
+            mock_spotify_class
+    ):
+        mock_spotify = MagicMock()
+        mock_spotify_class.return_value = mock_spotify
+
+        mock_spotify.current_user_playlists.return_value = {
+            "items": [
+                {
+                    "id": "other123",
+                    "name": "Other Playlist",
+                    "uri": "spotify:playlist:other123",
+                }
+            ]
+        }
+
+        service = SpotifyService(
+            auth_manager=None
+        )
+
+        playlist = service.find_playlist_by_name(
+            "TunePalette"
+        )
+
+        self.assertIsNone(playlist)
+
+    @patch("spotify_service.spotipy.Spotify")
+    def test_replace_playlist_tracks(
+            self,
+            mock_spotify_class
+    ):
+        mock_spotify = MagicMock()
+        mock_spotify_class.return_value = mock_spotify
+
+        service = SpotifyService(
+            auth_manager=None
+        )
+
+        tracks = [
+            {
+                "uri": "spotify:track:track1"
+            },
+            {
+                "uri": "spotify:track:track2"
+            },
+        ]
+
+        service.replace_playlist_tracks(
+            "playlist123",
+            tracks
+        )
+
+        mock_spotify.playlist_replace_items.assert_called_once_with(
+            "playlist123",
+            [
+                "spotify:track:track1",
+                "spotify:track:track2",
+            ]
+        )
+
+        mock_spotify.playlist_add_items.assert_not_called()
+
+    @patch("spotify_service.spotipy.Spotify")
+    def test_replace_playlist_tracks_splits_batches(
+            self,
+            mock_spotify_class
+    ):
+        mock_spotify = MagicMock()
+        mock_spotify_class.return_value = mock_spotify
+
+        service = SpotifyService(
+            auth_manager=None
+        )
+
+        tracks = [
+            {
+                "uri": f"spotify:track:track{i}"
+            }
+            for i in range(101)
+        ]
+
+        service.replace_playlist_tracks(
+            "playlist123",
+            tracks
+        )
+
+        first_batch = [
+            f"spotify:track:track{i}"
+            for i in range(100)
+        ]
+
+        mock_spotify.playlist_replace_items.assert_called_once_with(
+            "playlist123",
+            first_batch
+        )
+
+        mock_spotify.playlist_add_items.assert_called_once_with(
+            "playlist123",
+            [
+                "spotify:track:track100"
+            ]
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
