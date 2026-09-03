@@ -232,6 +232,65 @@ class LastfmServiceTest(unittest.TestCase):
                 "TK from Ling tosite sigure"
             )
 
+    @patch("lastfm_service.requests.get")
+    def test_get_artist_top_tags_returns_empty_on_rate_limit(
+            self,
+            mock_get
+    ):
+        mock_response = MagicMock()
+
+        mock_response.json.return_value = {
+            "error": 29,
+            "message": "Rate limit exceeded"
+        }
+
+        mock_get.return_value = mock_response
+
+        service = LastfmService(
+            "test_api_key"
+        )
+
+        tags = service.get_artist_top_tags(
+            "Sum 41"
+        )
+
+        self.assertEqual(
+            tags,
+            []
+        )
+
+        mock_response.raise_for_status.assert_called_once()
+
+    @patch("lastfm_service.requests.get")
+    def test_get_track_top_tags_returns_empty_on_rate_limit(
+            self,
+            mock_get
+    ):
+        mock_response = MagicMock()
+
+        mock_response.json.return_value = {
+            "error": 29,
+            "message": "Rate limit exceeded"
+        }
+
+        mock_get.return_value = mock_response
+
+        service = LastfmService(
+            "test_api_key"
+        )
+
+        tags = service.get_track_top_tags(
+            "Sum 41",
+            "Still Waiting"
+        )
+
+        self.assertEqual(
+            tags,
+            []
+        )
+
+        mock_response.raise_for_status.assert_called_once()
+
 
 if __name__ == "__main__":
     unittest.main()

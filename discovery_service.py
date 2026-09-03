@@ -129,6 +129,7 @@ class DiscoveryService:
 
         candidate_tracks = []
         seen_track_ids = set()
+        seen_track_keys = set()
 
         for candidate_artist in selected_artists:
             artist_name = candidate_artist["name"]
@@ -164,7 +165,31 @@ class DiscoveryService:
                 if artist_name.casefold() not in track_artists:
                     continue
 
+                track_name = track.get("name")
+
+                if not track_name:
+                    continue
+
+                normalized_artists = tuple(
+                    sorted(
+                        name.strip().casefold()
+                        for name in track["artists"]
+                        if name
+                    )
+                )
+
+                track_key = (
+                    track_name.strip().casefold(),
+                    normalized_artists
+                )
+
+                # Spotify IDが違っても、
+                # 曲名＋アーティストが同じなら同一曲として除外
+                if track_key in seen_track_keys:
+                    continue
+
                 seen_track_ids.add(track_id)
+                seen_track_keys.add(track_key)
 
                 candidate_tracks.append({
                     **track,

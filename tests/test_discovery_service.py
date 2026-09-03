@@ -342,6 +342,54 @@ class DiscoveryServiceTest(unittest.TestCase):
                 tracks_per_artist=11
             )
 
+    def test_get_candidate_tracks_excludes_same_title_and_artist_with_different_ids(self):
+        music_library = MagicMock()
+        lastfm_service = MagicMock()
+        spotify_service = MagicMock()
+
+        music_library.get_favorite_tracks.return_value = []
+
+        candidate_artists = [
+            {
+                "name": "Linked Horizon",
+                "similarity": 0.90,
+                "source_artists": ["Seed Artist"],
+            }
+        ]
+
+        spotify_service.search_tracks_by_artist.return_value = [
+            {
+                "id": "track2013",
+                "name": "紅蓮の弓矢",
+                "artists": ["Linked Horizon"],
+            },
+            {
+                "id": "track2017",
+                "name": "紅蓮の弓矢",
+                "artists": ["Linked Horizon"],
+            },
+        ]
+
+        service = DiscoveryService(
+            music_library,
+            lastfm_service,
+            spotify_service
+        )
+
+        tracks = service.get_candidate_tracks(
+            candidate_artists
+        )
+
+        self.assertEqual(
+            len(tracks),
+            1
+        )
+
+        self.assertEqual(
+            tracks[0]["name"],
+            "紅蓮の弓矢"
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -1,6 +1,15 @@
 import os
+from datetime import datetime
 
-from flask import Flask, redirect, request, session, abort, url_for
+from flask import (
+    Flask,
+    redirect,
+    request,
+    session,
+    abort,
+    url_for,
+    render_template,
+)
 from dotenv import load_dotenv
 from spotipy.oauth2 import SpotifyOAuth
 from spotify_service import SpotifyService
@@ -134,7 +143,16 @@ def callback():
     # このブラウザを「本人確認済み」として記録
     session["authorized"] = True
 
-    return redirect(url_for("playlists"))
+    return redirect(
+        url_for("settings")
+    )
+
+@app.route("/settings")
+@login_required
+def settings():
+    return render_template(
+        "settings.html"
+    )
 
 @app.route("/top")
 @login_required
@@ -248,15 +266,21 @@ def favorites():
 def favorite_preview():
     tracks = music_library.get_favorite_tracks()
 
+    analyzed_tracks = [
+        mood_service.analyze_track(track)
+        for track in tracks
+    ]
+
     targets = PlaylistGenerator.get_source_time_targets(
         total_minutes=60,
         discovery_ratio=40
     )
 
     selected_tracks = PlaylistGenerator.select_favorite_tracks(
-        tracks=tracks,
+        tracks=analyzed_tracks,
         target_ms=targets["favorite_ms"],
-        recency=50
+        recency=50,
+        mood=50
     )
 
     total_ms = sum(
@@ -286,11 +310,19 @@ def favorite_preview():
 
         artist_name = ", ".join(track["artists"])
 
+        mood_score = track.get("mood_score")
+
+        if mood_score is None:
+            mood_text = "判定不可"
+        else:
+            mood_text = f"{mood_score:.1f}"
+
         output += (
             f"<p>"
             f"{artist_name} - {track['name']}"
             f" - {duration_text}"
             f" - {track['release_year']}年"
+            f" - mood: {mood_text}"
             f"</p>"
         )
 
@@ -421,6 +453,14 @@ def discovery_preview():
         )
     )
 
+    # DISCOVERED候補曲に
+    # アーティスト単位のmood_scoreを付与
+    analyzed_tracks = (
+        mood_service.analyze_discovered_tracks(
+            candidate_tracks
+        )
+    )
+
     targets = PlaylistGenerator.get_source_time_targets(
         total_minutes=60,
         discovery_ratio=40
@@ -428,9 +468,10 @@ def discovery_preview():
 
     selected_tracks = (
         PlaylistGenerator.select_discovered_tracks(
-            tracks=candidate_tracks,
+            tracks=analyzed_tracks,
             target_ms=targets["discovered_ms"],
-            recency=50
+            recency=50,
+            mood=50
         )
     )
 
@@ -463,23 +504,322 @@ def discovery_preview():
             track["artists"]
         )
 
+        mood_score = track.get("mood_score")
+
+        if mood_score is None:
+            mood_text = "判定不可"
+        else:
+            mood_text = f"{mood_score:.1f}"
+
+        mood_tags = track.get(
+            "mood_tags",
+            []
+        )
+
+        tags_text = ", ".join(
+            mood_tags
+        )
+
+        discovery_artist = track.get(
+            "discovery_artist",
+            "不明"
+        )
+
         output += (
             f"<p>"
-            f"{artist_name} - {track['name']}"
-            f" - {duration_text}"
-            f" - {track['release_year']}年"
+            f"<strong>{artist_name} - {track['name']}</strong>"
+            f"<br>"
+            f"再生時間: {duration_text}"
+            f" / 年代: {track['release_year']}年"
+            f" / mood: {mood_text}"
+            f"<br>"
+            f"判定アーティスト: {discovery_artist}"
+            f"<br>"
+            f"Last.fm tags: {tags_text}"
             f"</p>"
+            f"<hr>"
         )
 
     return output
 
+@app.route("/create-playlist", methods=["POST"])
+@login_required
+def create_playlist():
+
+    # -------------------------
+    # 設定画面から値を受け取る
+    # -------------------------
+
+    mood = request.form.get(
+        "mood",
+        default=50,
+        type=int
+    )
+
+    discovery_ratio = request.form.get(
+        "discovery_ratio",
+        default=40,
+        type=int
+    )
+
+    recency = request.form.get(
+        "recency",
+        default=50,
+        type=int
+    )
+
+    duration = request.form.get(
+        "duration",
+        default=60,
+        type=int
+    )
+
+
+    # -------------------------
+    # 入力値チェック
+    # -------------------------
+
+    if not 0 <= mood <= 100:
+        abort(400)
+
+    if not 0 <= discovery_ratio <= 100:
+        abort(400)
+
+    if not 0 <= recency <= 100:
+        abort(400)
+
+    if duration not in {
+        30,
+        60,
+        90,
+        120,
+    }:
+        abort(400)
+
+
+    # -------------------------
+    # FAVORITE / DISCOVERED
+    # の目標時間を計算
+    # -------------------------
+
+    targets = (
+        PlaylistGenerator.get_source_time_targets(
+            total_minutes=duration,
+            discovery_ratio=discovery_ratio
+        )
+    )
+
+
+    # -------------------------
+    # FAVORITEを選曲
+    # -------------------------
+
+    favorite_tracks = []
+
+    if targets["favorite_ms"] > 0:
+
+        favorite_candidates = (
+            music_library.get_favorite_tracks()
+        )
+
+        favorite_candidates = [
+            mood_service.analyze_track(track)
+            for track in favorite_candidates
+        ]
+
+        favorite_tracks = (
+            PlaylistGenerator.select_favorite_tracks(
+                tracks=favorite_candidates,
+                target_ms=targets["favorite_ms"],
+                recency=recency,
+                mood=mood
+            )
+        )
+
+
+    # -------------------------
+    # DISCOVEREDを選曲
+    # -------------------------
+
+    discovered_tracks = []
+
+    if targets["discovered_ms"] > 0:
+
+        candidate_artists = (
+            discovery_service.get_candidate_artists(
+                seed_limit=5,
+                similar_limit=10
+            )
+        )
+
+        discovered_candidates = (
+            discovery_service.get_candidate_tracks(
+                candidate_artists,
+                artist_limit=10,
+                tracks_per_artist=10
+            )
+        )
+
+        discovered_candidates = (
+            mood_service.analyze_discovered_tracks(
+                discovered_candidates
+            )
+        )
+
+        discovered_tracks = (
+            PlaylistGenerator.select_discovered_tracks(
+                tracks=discovered_candidates,
+                target_ms=targets["discovered_ms"],
+                recency=recency,
+                mood=mood
+            )
+        )
+
+
+    # -------------------------
+    # 2種類を混ぜる
+    # -------------------------
+
+    mixed_tracks = (
+        PlaylistGenerator.mix_tracks(
+            favorite_tracks,
+            discovered_tracks
+        )
+    )
+
+    if not mixed_tracks:
+        return (
+            "選曲できる曲がありませんでした。"
+            '<br><a href="/settings">設定画面へ戻る</a>',
+            500
+        )
+
+
+    # -------------------------
+    # Spotifyプレイリスト作成
+    # -------------------------
+
+    created_at = datetime.now().strftime(
+        "%Y-%m-%d %H:%M"
+    )
+
+    playlist_name = (
+        f"TunePalette {created_at}"
+    )
+
+    description = (
+        f"TunePaletteで自動生成 "
+        f"| mood {mood} "
+        f"| discovery {discovery_ratio}% "
+        f"| recency {recency} "
+        f"| {duration}min"
+    )
+
+    playlist = spotify_service.create_playlist(
+        name=playlist_name,
+        public=False,
+        description=description
+    )
+
+
+    # -------------------------
+    # 選ばれた曲をSpotifyへ追加
+    # -------------------------
+
+    spotify_service.add_tracks_to_playlist(
+        playlist_id=playlist["id"],
+        tracks=mixed_tracks
+    )
+
+
+    # POSTの結果を直接表示せず、
+    # GETの完了画面へ移動する
+    return redirect(
+        url_for(
+            "playlist_created",
+            playlist_id=playlist["id"]
+        )
+    )
+
+
+@app.route("/playlist-created/<playlist_id>")
+@login_required
+def playlist_created(playlist_id):
+
+    spotify_url = (
+        f"https://open.spotify.com/playlist/"
+        f"{playlist_id}"
+    )
+
+    return (
+        "<h1>プレイリストを作成しました！</h1>"
+        "<p>TunePaletteの選曲がSpotifyに追加されました。</p>"
+        f'<p>'
+        f'<a href="{spotify_url}" target="_blank">'
+        f'Spotifyで開く'
+        f'</a>'
+        f'</p>'
+        '<p>'
+        '<a href="/settings">'
+        'もう一度作る'
+        '</a>'
+        '</p>'
+    )
+
 @app.route("/playlist-preview")
 @login_required
 def playlist_preview():
+    mood = request.args.get(
+        "mood",
+        default=50,
+        type=int
+    )
+
+    discovery_ratio = request.args.get(
+        "discovery_ratio",
+        default=40,
+        type=int
+    )
+
+    recency = request.args.get(
+        "recency",
+        default=50,
+        type=int
+    )
+
+    duration = request.args.get(
+        "duration",
+        default=60,
+        type=int
+    )
+
+    # URLを直接書き換えられた場合にも備えて確認
+    if not 0 <= mood <= 100:
+        abort(400)
+
+    if not 0 <= discovery_ratio <= 100:
+        abort(400)
+
+    if not 0 <= recency <= 100:
+        abort(400)
+
+    if duration not in {
+        30,
+        60,
+        90,
+        120,
+    }:
+        abort(400)
+
     # FAVORITEを取得
     favorite_candidates = (
         music_library.get_favorite_tracks()
     )
+
+    favorite_candidates = [
+        mood_service.analyze_track(track)
+        for track in favorite_candidates
+    ]
 
     # DISCOVERED候補アーティストを取得
     candidate_artists = (
@@ -498,10 +838,16 @@ def playlist_preview():
         )
     )
 
+    discovered_candidates = (
+        mood_service.analyze_discovered_tracks(
+            discovered_candidates
+        )
+    )
+
     # 60分・知らない曲40%の時間配分
     targets = PlaylistGenerator.get_source_time_targets(
-        total_minutes=60,
-        discovery_ratio=40
+        total_minutes=duration,
+        discovery_ratio=discovery_ratio
     )
 
     # FAVORITEを約36分選曲
@@ -509,7 +855,8 @@ def playlist_preview():
         PlaylistGenerator.select_favorite_tracks(
             tracks=favorite_candidates,
             target_ms=targets["favorite_ms"],
-            recency=50
+            recency=recency,
+            mood=mood
         )
     )
 
@@ -518,7 +865,8 @@ def playlist_preview():
         PlaylistGenerator.select_discovered_tracks(
             tracks=discovered_candidates,
             target_ms=targets["discovered_ms"],
-            recency=50
+            recency=recency,
+            mood=mood
         )
     )
 
@@ -550,7 +898,12 @@ def playlist_preview():
 
     output = (
         "<h1>TunePalette プレイリストプレビュー</h1>"
-        "<p>設定: 60分 / 知らない曲40% / recency 50</p>"
+        f"<p>"
+        f"設定: {duration}分"
+        f" / 知らない曲 {discovery_ratio}%"
+        f" / recency {recency}"
+        f" / mood {mood}"
+        f"</p>"
         f"<p>FAVORITE: "
         f"{format_duration(favorite_ms)} "
         f"({len(favorite_tracks)}曲)</p>"

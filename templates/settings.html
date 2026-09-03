@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>TunePalette</title>
+</head>
+
+<body>
+
+<main>
+
+    <h1>TunePalette</h1>
+
+    <p>
+        今日の気分に合わせて、
+        プレイリストをブレンドします。
+    </p>
+
+
+    <form
+    id="playlist-form"
+    action="/create-playlist"
+    method="post"
+>
+
+        <!-- 気分 -->
+        <section>
+
+            <h2>
+                気分：
+                <span id="mood-value">50</span>
+            </h2>
+
+            <div>
+
+                <span>落ち着く</span>
+
+                <input
+                    type="range"
+                    id="mood"
+                    name="mood"
+                    min="0"
+                    max="100"
+                    value="50"
+                >
+
+                <span>激しめ</span>
+
+            </div>
+
+        </section>
+
+
+        <!-- 知らない曲 -->
+        <section>
+
+    <h2>
+        FAVORITE
+        <span id="favorite-value">60</span>%
+        /
+        DISCOVERED
+        <span id="discovery-value">40</span>%
+    </h2>
+
+    <div>
+
+        <span>FAVORITE</span>
+
+        <input
+            type="range"
+            id="discovery_ratio"
+            name="discovery_ratio"
+            min="0"
+            max="100"
+            value="40"
+        >
+
+        <span>DISCOVERED</span>
+
+    </div>
+
+</section>
+
+
+        <!-- 最近の曲 -->
+        <section>
+
+            <h2>
+                最近の曲：
+                <span id="recency-value">50</span>
+            </h2>
+
+            <div>
+
+                <span>年代広め</span>
+
+                <input
+                    type="range"
+                    id="recency"
+                    name="recency"
+                    min="0"
+                    max="100"
+                    value="50"
+                >
+
+                <span>最近中心</span>
+
+            </div>
+
+        </section>
+
+
+        <!-- 再生時間 -->
+        <section>
+
+            <h2>再生時間</h2>
+
+            <label>
+                <input
+                    type="radio"
+                    name="duration"
+                    value="30"
+                >
+                30分
+            </label>
+
+            <label>
+                <input
+                    type="radio"
+                    name="duration"
+                    value="60"
+                    checked
+                >
+                60分
+            </label>
+
+            <label>
+                <input
+                    type="radio"
+                    name="duration"
+                    value="90"
+                >
+                90分
+            </label>
+
+            <label>
+                <input
+                    type="radio"
+                    name="duration"
+                    value="120"
+                >
+                120分
+            </label>
+
+        </section>
+
+
+        <!-- おまかせ -->
+        <p>
+            <button
+                type="button"
+                id="random-button"
+            >
+                おまかせ
+            </button>
+        </p>
+
+
+        <!-- 生成 -->
+        <p>
+            <button
+                type="submit"
+                id="create-button"
+            >
+                プレイリストを作る
+            </button>
+        </p>
+
+
+        <!-- 生成中表示 -->
+        <p
+            id="loading-message"
+            hidden
+        >
+            プレイリストを生成しています...
+        </p>
+
+    </form>
+
+</main>
+
+
+<script>
+
+    // -------------------------
+    // スライダー
+    // -------------------------
+
+    const moodSlider =
+        document.getElementById("mood");
+
+    const discoverySlider =
+        document.getElementById(
+            "discovery_ratio"
+        );
+
+    const recencySlider =
+        document.getElementById("recency");
+
+
+    // -------------------------
+    // 現在値の表示
+    // -------------------------
+
+    const moodValue =
+        document.getElementById(
+            "mood-value"
+        );
+
+    const discoveryValue =
+        document.getElementById(
+            "discovery-value"
+        );
+
+    const favoriteValue =
+    document.getElementById(
+        "favorite-value"
+    );
+
+    const recencyValue =
+        document.getElementById(
+            "recency-value"
+        );
+
+
+    // -------------------------
+    // ボタン・フォーム
+    // -------------------------
+
+    const randomButton =
+        document.getElementById(
+            "random-button"
+        );
+
+    const playlistForm =
+        document.getElementById(
+            "playlist-form"
+        );
+
+    const createButton =
+        document.getElementById(
+            "create-button"
+        );
+
+    const loadingMessage =
+        document.getElementById(
+            "loading-message"
+        );
+
+
+    // -------------------------
+    // スライダーの値表示
+    // -------------------------
+
+    moodSlider.addEventListener(
+        "input",
+        function () {
+
+            moodValue.textContent =
+                moodSlider.value;
+        }
+    );
+
+
+    discoverySlider.addEventListener(
+    "input",
+    function () {
+
+        const discovery =
+            Number(discoverySlider.value);
+
+        const favorite =
+            100 - discovery;
+
+        discoveryValue.textContent =
+            discovery;
+
+        favoriteValue.textContent =
+            favorite;
+    }
+);
+
+
+    recencySlider.addEventListener(
+        "input",
+        function () {
+
+            recencyValue.textContent =
+                recencySlider.value;
+        }
+    );
+
+
+    // -------------------------
+    // おまかせ
+    // -------------------------
+
+    randomButton.addEventListener(
+        "click",
+        function () {
+
+            const randomMood =
+                Math.floor(
+                    Math.random() * 101
+                );
+
+            const randomDiscovery =
+                Math.floor(
+                    Math.random() * 101
+                );
+
+            const randomRecency =
+                Math.floor(
+                    Math.random() * 101
+                );
+
+
+            // スライダーを変更
+            moodSlider.value =
+                randomMood;
+
+            discoverySlider.value =
+                randomDiscovery;
+
+            recencySlider.value =
+                randomRecency;
+
+
+            // 表示している数字も変更
+            moodValue.textContent =
+                randomMood;
+
+            discoveryValue.textContent =
+    randomDiscovery;
+
+favoriteValue.textContent =
+    100 - randomDiscovery;
+
+            recencyValue.textContent =
+                randomRecency;
+        }
+    );
+
+
+    // -------------------------
+    // プレイリスト生成開始
+    // -------------------------
+
+    playlistForm.addEventListener(
+        "submit",
+        function () {
+
+            // 二重クリック防止
+            createButton.disabled = true;
+
+            // ボタン表示変更
+            createButton.textContent =
+                "生成中...";
+
+            // メッセージ表示
+            loadingMessage.hidden = false;
+        }
+    );
+
+</script>
+
+</body>
+
+</html>

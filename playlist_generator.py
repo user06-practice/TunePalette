@@ -13,13 +13,40 @@ class PlaylistGenerator:
 
         return (release_year // 10) * 10
 
+    @staticmethod
+    def get_mood_weight(track_mood_score, mood):
+        if not 0 <= mood <= 100:
+            raise ValueError(
+                "moodは0～100で指定してください。"
+            )
+
+        # mood_scoreを判定できなかった曲も
+        # 完全には候補から除外しない
+        if track_mood_score is None:
+            return 0.25
+
+        difference = abs(
+            mood - track_mood_score
+        )
+
+        weight = 1.0 - (
+                difference / 100
+        )
+
+        return max(
+            weight,
+            0.05
+        )
+
     @classmethod
     def select_tracks(
             cls,
             tracks,
             target_ms,
             recency,
-            rng=None
+            mood=50,
+            rng=None,
+            max_tracks_per_artist=None
     ):
         if target_ms < 0:
             raise ValueError("target_msは0以上で指定してください。")
@@ -45,10 +72,48 @@ class PlaylistGenerator:
         selected_tracks = []
         total_ms = 0
 
+        selected_artist_counts = {}
+
         while available_tracks and total_ms < target_ms:
-            tracks_by_decade = {}
+            eligible_tracks = []
 
             for track in available_tracks:
+
+                if max_tracks_per_artist is not None:
+                    artist_name = track.get(
+                        "discovery_artist"
+                    )
+
+                    # discovery_artistがない場合の保険
+                    if not artist_name:
+                        artists = track.get(
+                            "artists",
+                            []
+                        )
+
+                        if artists:
+                            artist_name = artists[0]
+
+                    if artist_name:
+                        artist_key = artist_name.casefold()
+
+                        if (
+                                selected_artist_counts.get(
+                                    artist_key,
+                                    0
+                                )
+                                >= max_tracks_per_artist
+                        ):
+                            continue
+
+                eligible_tracks.append(track)
+
+            if not eligible_tracks:
+                break
+
+            tracks_by_decade = {}
+
+            for track in eligible_tracks:
                 decade = cls.get_decade(
                     track["release_year"]
                 )
@@ -71,9 +136,21 @@ class PlaylistGenerator:
                 k=1
             )[0]
 
-            track = rng.choice(
-                tracks_by_decade[selected_decade]
-            )
+            decade_tracks = tracks_by_decade[
+                selected_decade
+            ]
+
+            track = rng.choices(
+                decade_tracks,
+                weights=[
+                    cls.get_mood_weight(
+                        track.get("mood_score"),
+                        mood
+                    )
+                    for track in decade_tracks
+                ],
+                k=1
+            )[0]
 
             available_tracks.remove(track)
 
@@ -93,6 +170,33 @@ class PlaylistGenerator:
                 selected_tracks.append(track)
                 total_ms += duration_ms
 
+                if max_tracks_per_artist is not None:
+                    artist_name = track.get(
+                        "discovery_artist"
+                    )
+
+                    if not artist_name:
+                        artists = track.get(
+                            "artists",
+                            []
+                        )
+
+                        if artists:
+                            artist_name = artists[0]
+
+                    if artist_name:
+                        artist_key = artist_name.casefold()
+
+                        selected_artist_counts[
+                            artist_key
+                        ] = (
+                                selected_artist_counts.get(
+                                    artist_key,
+                                    0
+                                )
+                                + 1
+                        )
+
         return selected_tracks
 
     @classmethod
@@ -101,12 +205,14 @@ class PlaylistGenerator:
             tracks,
             target_ms,
             recency,
+            mood=50,
             rng=None
     ):
         return cls.select_tracks(
             tracks=tracks,
             target_ms=target_ms,
             recency=recency,
+            mood=mood,
             rng=rng
         )
 
@@ -116,13 +222,16 @@ class PlaylistGenerator:
             tracks,
             target_ms,
             recency,
+            mood=50,
             rng=None
     ):
         return cls.select_tracks(
             tracks=tracks,
             target_ms=target_ms,
             recency=recency,
-            rng=rng
+            mood=mood,
+            rng=rng,
+            max_tracks_per_artist=2
         )
 
     @staticmethod

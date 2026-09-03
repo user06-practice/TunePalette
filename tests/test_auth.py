@@ -154,7 +154,7 @@ class AuthTest(unittest.TestCase):
 
         self.assertEqual(response.status_code, 302)
         self.assertTrue(
-            response.headers["Location"].endswith("/playlists")
+            response.headers["Location"].endswith("/settings")
         )
 
         # 本人のTokenだけ正式なメモリキャッシュへ保存

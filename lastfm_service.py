@@ -97,6 +97,41 @@ class LastfmService:
 
         data = response.json()
 
+        # Last.fmが通常レスポンスではなく
+        # APIエラーを返した場合
+        if "error" in data:
+            error_code = data.get("error")
+            error_message = data.get(
+                "message",
+                ""
+            )
+
+            # 一時障害・対象なし・レート制限などは
+            # TunePalette全体を停止せず、
+            # このアーティストだけタグなしとして扱う
+            recoverable_errors = {
+                7,  # Invalid resource
+                8,  # Operation failed
+                11,  # Service offline
+                16,  # Temporary error
+                29,  # Rate limit exceeded
+            }
+
+            if error_code in recoverable_errors:
+                print(
+                    f"Last.fm artistタグ取得をスキップ: "
+                    f"{error_code} {error_message}"
+                )
+
+                return []
+
+            # APIキー不正など、
+            # 設定ミスの可能性があるものはエラーにする
+            raise LastfmApiSchemaError(
+                f"Last.fm APIエラー: "
+                f"{error_code} {error_message}"
+            )
+
         if "toptags" not in data:
             raise LastfmApiSchemaError(
                 "Last.fmレスポンスに 'toptags' がありません。"
@@ -151,6 +186,41 @@ class LastfmService:
         response.raise_for_status()
 
         data = response.json()
+
+        # Last.fmが通常レスポンスではなく
+        # APIエラーを返した場合
+        if "error" in data:
+            error_code = data.get("error")
+            error_message = data.get(
+                "message",
+                ""
+            )
+
+            # 一時障害・対象なし・レート制限などは
+            # TunePalette全体を停止せず、
+            # このアーティストだけタグなしとして扱う
+            recoverable_errors = {
+                7,  # Invalid resource
+                8,  # Operation failed
+                11,  # Service offline
+                16,  # Temporary error
+                29,  # Rate limit exceeded
+            }
+
+            if error_code in recoverable_errors:
+                print(
+                    f"Last.fm artistタグ取得をスキップ: "
+                    f"{error_code} {error_message}"
+                )
+
+                return []
+
+            # APIキー不正など、
+            # 設定ミスの可能性があるものはエラーにする
+            raise LastfmApiSchemaError(
+                f"Last.fm APIエラー: "
+                f"{error_code} {error_message}"
+            )
 
         if "toptags" not in data:
             raise LastfmApiSchemaError(

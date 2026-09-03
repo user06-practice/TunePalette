@@ -1,4 +1,5 @@
 import unittest
+from unittest.mock import MagicMock
 
 from playlist_generator import PlaylistGenerator
 
@@ -297,6 +298,192 @@ class PlaylistGeneratorTest(unittest.TestCase):
         self.assertEqual(
             discovered_count,
             1
+        )
+
+    def test_mood_weight_same_score(self):
+        weight = PlaylistGenerator.get_mood_weight(
+            track_mood_score=50,
+            mood=50
+        )
+
+        self.assertAlmostEqual(
+            weight,
+            1.0
+        )
+
+    def test_mood_weight_near_score(self):
+        weight = PlaylistGenerator.get_mood_weight(
+            track_mood_score=40,
+            mood=50
+        )
+
+        self.assertAlmostEqual(
+            weight,
+            0.9
+        )
+
+    def test_mood_weight_far_score(self):
+        weight = PlaylistGenerator.get_mood_weight(
+            track_mood_score=0,
+            mood=100
+        )
+
+        self.assertAlmostEqual(
+            weight,
+            0.05
+        )
+
+    def test_mood_weight_without_score(self):
+        weight = PlaylistGenerator.get_mood_weight(
+            track_mood_score=None,
+            mood=50
+        )
+
+        self.assertAlmostEqual(
+            weight,
+            0.25
+        )
+
+    def test_mood_weight_mood_out_of_range(self):
+        with self.assertRaises(ValueError):
+            PlaylistGenerator.get_mood_weight(
+                track_mood_score=50,
+                mood=101
+            )
+
+    def test_select_tracks_uses_mood_weight(self):
+        low_mood_track = {
+            "id": "low",
+            "name": "Low Mood",
+            "duration_ms": 180000,
+            "release_year": 2024,
+            "mood_score": 20,
+        }
+
+        high_mood_track = {
+            "id": "high",
+            "name": "High Mood",
+            "duration_ms": 180000,
+            "release_year": 2024,
+            "mood_score": 80,
+        }
+
+        tracks = [
+            low_mood_track,
+            high_mood_track,
+        ]
+
+        rng = MagicMock()
+
+        # 1回目のchoices:
+        # 年代選択 → 2020年代を選ぶ
+        #
+        # 2回目のchoices:
+        # moodによる曲選択 → high_mood_trackを選ぶ
+        rng.choices.side_effect = [
+            [2020],
+            [high_mood_track],
+        ]
+
+        selected = PlaylistGenerator.select_tracks(
+            tracks=tracks,
+            target_ms=180000,
+            recency=50,
+            mood=80,
+            rng=rng
+        )
+
+        self.assertEqual(
+            selected[0]["id"],
+            "high"
+        )
+
+        # rng.choices() の2回目が
+        # moodによる曲選択
+        mood_choice_call = rng.choices.call_args_list[1]
+
+        mood_weights = mood_choice_call.kwargs[
+            "weights"
+        ]
+
+        self.assertAlmostEqual(
+            mood_weights[0],
+            0.4
+        )
+
+        self.assertAlmostEqual(
+            mood_weights[1],
+            1.0
+        )
+
+    def test_select_discovered_tracks_limits_same_artist_to_two(self):
+        import random
+
+        tracks = [
+            {
+                "id": "a1",
+                "name": "Song A1",
+                "artists": ["Artist A"],
+                "discovery_artist": "Artist A",
+                "duration_ms": 180000,
+                "release_year": 2020,
+                "mood_score": 50,
+            },
+            {
+                "id": "a2",
+                "name": "Song A2",
+                "artists": ["Artist A"],
+                "discovery_artist": "Artist A",
+                "duration_ms": 180000,
+                "release_year": 2020,
+                "mood_score": 50,
+            },
+            {
+                "id": "a3",
+                "name": "Song A3",
+                "artists": ["Artist A"],
+                "discovery_artist": "Artist A",
+                "duration_ms": 180000,
+                "release_year": 2020,
+                "mood_score": 50,
+            },
+            {
+                "id": "b1",
+                "name": "Song B1",
+                "artists": ["Artist B"],
+                "discovery_artist": "Artist B",
+                "duration_ms": 180000,
+                "release_year": 2020,
+                "mood_score": 50,
+            },
+            {
+                "id": "b2",
+                "name": "Song B2",
+                "artists": ["Artist B"],
+                "discovery_artist": "Artist B",
+                "duration_ms": 180000,
+                "release_year": 2020,
+                "mood_score": 50,
+            },
+        ]
+
+        selected = PlaylistGenerator.select_discovered_tracks(
+            tracks=tracks,
+            target_ms=15 * 60 * 1000,
+            recency=50,
+            mood=50,
+            rng=random.Random(1)
+        )
+
+        artist_a_count = sum(
+            1
+            for track in selected
+            if track["discovery_artist"] == "Artist A"
+        )
+
+        self.assertLessEqual(
+            artist_a_count,
+            2
         )
 
 
