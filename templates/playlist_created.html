@@ -209,9 +209,9 @@
     <div class="actions">
 
         <form
-    action="/play-playlist/{{ playlist_id }}"
-    method="post"
->
+            action="{{ url_for('play_playlist', playlist_id=playlist_id) }}"
+            method="post"
+        >
     <button
         class="button primary"
         type="submit"
@@ -230,7 +230,7 @@
 
         <a
             class="button secondary"
-            href="/settings"
+            href="{{ url_for('settings') }}"
         >
             <span
                 class="icon"
