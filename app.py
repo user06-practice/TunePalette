@@ -19,6 +19,7 @@ from playlist_generator import PlaylistGenerator
 from lastfm_service import LastfmService
 from discovery_service import DiscoveryService
 from mood_service import MoodService
+from spotipy.exceptions import SpotifyException
 
 
 
@@ -35,7 +36,9 @@ SCOPE = (
     "user-read-private "
     "playlist-read-private "
     "playlist-modify-private "
-    "playlist-modify-public"
+    "playlist-modify-public "
+    "user-read-playback-state "
+    "user-modify-playback-state"
 )
 
 
@@ -92,7 +95,9 @@ def login_required(view_function):
 
 @app.route("/")
 def index():
-    return '<a href="/login">Spotifyでログイン</a>'
+    return redirect(
+        url_for("settings")
+    )
 
 
 @app.route("/login")
@@ -688,8 +693,9 @@ def create_playlist():
 
     if not mixed_tracks:
         return (
-            "選曲できる曲がありませんでした。"
-            '<br><a href="/settings">設定画面へ戻る</a>',
+            render_template(
+                "error.html"
+            ),
             500
         )
 
@@ -757,19 +763,59 @@ def playlist_created(playlist_id):
         f"{playlist_id}"
     )
 
-    return (
-        "<h1>TunePaletteを更新しました！</h1>"
-        "<p>新しい選曲がSpotifyに反映されました。</p>"
-        f'<p>'
-        f'<a href="{spotify_url}" target="_blank">'
-        f'Spotifyで開く'
-        f'</a>'
-        f'</p>'
-        '<p>'
-        '<a href="/settings">'
-        'もう一度作る'
-        '</a>'
-        '</p>'
+    return render_template(
+        "playlist_created.html",
+        spotify_url=spotify_url,
+        playlist_id=playlist_id
+    )
+
+@app.route(
+    "/play-playlist/<playlist_id>",
+    methods=["POST"]
+)
+@login_required
+def play_playlist(playlist_id):
+
+    spotify_url = (
+        f"https://open.spotify.com/playlist/"
+        f"{playlist_id}"
+    )
+
+    try:
+        started = (
+            spotify_service.play_playlist(
+                playlist_id
+            )
+        )
+
+    except SpotifyException as error:
+
+        print(
+            "Spotify再生開始に失敗: "
+            f"{error}"
+        )
+
+        # 再生できなければ
+        # Spotifyでプレイリストを開く
+        return redirect(
+            spotify_url
+        )
+
+
+    # 再生できるデバイスがなかった場合
+    if not started:
+        return redirect(
+            spotify_url
+        )
+
+
+    # 再生成功時は
+    # TunePaletteの完了画面に残る
+    return redirect(
+        url_for(
+            "playlist_created",
+            playlist_id=playlist_id
+        )
     )
 
 @app.route("/playlist-preview")
@@ -986,6 +1032,16 @@ def mood_preview():
         )
 
     return output
+
+@app.errorhandler(500)
+def internal_server_error(error):
+
+    return (
+        render_template(
+            "error.html"
+        ),
+        500
+    )
 
 if __name__ == "__main__":
     app.run(debug=True)

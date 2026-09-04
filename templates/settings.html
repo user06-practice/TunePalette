@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="ja">
+<html lang="en">
 
 <head>
     <meta charset="UTF-8">
@@ -10,201 +10,860 @@
     >
 
     <title>TunePalette</title>
+
+    <style>
+
+        :root {
+            --mix-color: rgb(158, 157, 153);
+            --mix-rgb: 158, 157, 153;
+            --mix-text: #f8f6f1;
+
+            --background: #f3f1eb;
+            --card: #faf9f5;
+            --text: #2e2d2a;
+            --muted: #77736b;
+            --line: #d8d4cb;
+        }
+
+
+        * {
+            box-sizing: border-box;
+        }
+
+
+        html,
+        body {
+            margin: 0;
+            width: 100%;
+            height: 100%;
+        }
+
+
+        body {
+            font-family:
+                -apple-system,
+                BlinkMacSystemFont,
+                "Segoe UI",
+                sans-serif;
+
+            background: #dedbd4;
+            color: var(--text);
+        }
+
+
+        .screen {
+            position: relative;
+
+            width: 100%;
+            max-width: 430px;
+
+            height: 100dvh;
+
+            margin: 0 auto;
+
+            padding:
+                max(18px, env(safe-area-inset-top))
+                18px
+                max(16px, env(safe-area-inset-bottom));
+
+            overflow: hidden;
+
+            background:
+                var(--background);
+
+            display: flex;
+            flex-direction: column;
+
+            transition:
+                background-color 0.25s ease;
+        }
+
+
+        /*
+         * 3本のスライダーから作った色を
+         * 背景にごく薄くにじませる
+         */
+        .screen::before {
+            content: "";
+
+            position: absolute;
+            inset: auto -30% -20% -30%;
+
+            height: 58%;
+
+            background:
+                radial-gradient(
+                    circle,
+                    rgba(var(--mix-rgb), 0.20),
+                    rgba(var(--mix-rgb), 0.08) 45%,
+                    transparent 72%
+                );
+
+            pointer-events: none;
+
+            transition:
+                background 0.25s ease;
+        }
+
+
+        .content {
+            position: relative;
+            z-index: 1;
+
+            height: 100%;
+
+            display: flex;
+            flex-direction: column;
+        }
+
+
+        /* -------------------------
+           Title
+        ------------------------- */
+
+        h1 {
+            margin:
+                4px
+                0
+                16px;
+
+            text-align: center;
+
+            font-size: 31px;
+            font-weight: 650;
+            letter-spacing: -1px;
+        }
+
+
+        .palette-text {
+            color: var(--mix-color);
+
+            transition:
+                color 0.22s ease;
+        }
+
+
+        /* -------------------------
+           Form
+        ------------------------- */
+
+        form {
+            flex: 1;
+
+            display: flex;
+            flex-direction: column;
+
+            gap: 10px;
+
+            min-height: 0;
+        }
+
+
+        .control-card {
+            flex: 1;
+
+            min-height: 0;
+
+            display: grid;
+
+            grid-template-columns:
+                42px
+                1fr;
+
+            column-gap: 11px;
+
+            align-items: center;
+
+            padding:
+                10px
+                13px;
+
+            border:
+                1px solid
+                rgba(63, 60, 55, 0.10);
+
+            border-radius: 18px;
+
+            background: var(--card);
+
+            box-shadow:
+                0 2px 8px
+                rgba(55, 51, 45, 0.07);
+        }
+
+
+        /*
+         * ピクトグラムはカード内部に置き、
+         * ボタンには見せない
+         */
+        .card-icon {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+
+            color: #68645d;
+
+            pointer-events: none;
+        }
+
+
+        .card-icon svg {
+            width: 29px;
+            height: 29px;
+
+            fill: none;
+
+            stroke: currentColor;
+            stroke-width: 1.7;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+        }
+
+
+        .control-main {
+            min-width: 0;
+        }
+
+
+        .control-title {
+            margin:
+                0
+                0
+                4px;
+
+            font-size: 16px;
+            font-weight: 650;
+        }
+
+
+        .blend-title {
+            font-size: 14px;
+        }
+
+
+        .labels {
+            display: flex;
+            justify-content: space-between;
+
+            margin-top: 3px;
+
+            color: var(--muted);
+
+            font-size: 11px;
+        }
+
+
+        /* -------------------------
+           Slider
+        ------------------------- */
+
+        input[type="range"] {
+            display: block;
+
+            width: 100%;
+            height: 26px;
+
+            margin: 0;
+
+            accent-color: #5f5d58;
+        }
+
+
+        /* -------------------------
+           Duration
+        ------------------------- */
+
+        .duration-card {
+            flex:
+                0
+                0
+                84px;
+        }
+
+
+        .duration-options {
+            display: grid;
+
+            grid-template-columns:
+                repeat(4, 1fr);
+
+            overflow: hidden;
+
+            border:
+                1px solid
+                var(--line);
+
+            border-radius: 12px;
+        }
+
+
+        .duration-options input {
+            position: absolute;
+
+            opacity: 0;
+            pointer-events: none;
+        }
+
+
+        .duration-options label {
+            padding:
+                9px
+                2px;
+
+            text-align: center;
+
+            color: #5d5952;
+
+            font-size: 11px;
+            font-weight: 600;
+
+            border-right:
+                1px solid
+                var(--line);
+
+            cursor: pointer;
+
+            transition:
+                background-color 0.15s ease,
+                color 0.15s ease;
+        }
+
+
+        .duration-options label:last-child {
+            border-right: 0;
+        }
+
+
+        .duration-options input:checked + label {
+            color: #f8f6f1;
+            background: #4b4945;
+        }
+
+
+        /* -------------------------
+           Random
+        ------------------------- */
+
+        .random-button {
+            flex:
+                0
+                0
+                49px;
+
+            width: 100%;
+
+            display: flex;
+            align-items: center;
+            justify-content: center;
+
+            gap: 9px;
+
+            border:
+                1px solid
+                rgba(63, 60, 55, 0.14);
+
+            border-radius: 15px;
+
+            background: #faf9f5;
+
+            color: var(--text);
+
+            font: inherit;
+            font-size: 15px;
+            font-weight: 620;
+
+            cursor: pointer;
+
+            box-shadow:
+                0 2px 7px
+                rgba(55, 51, 45, 0.06);
+
+            transition:
+                transform 0.12s ease;
+        }
+
+
+        .random-button:active {
+            transform: scale(0.975);
+        }
+
+
+        .random-icon {
+            font-size: 23px;
+            line-height: 1;
+        }
+
+
+        /* -------------------------
+           Create
+        ------------------------- */
+
+        .create-button {
+            flex:
+                0
+                0
+                58px;
+
+            width: 100%;
+
+            border:
+                1px solid
+                rgba(50, 48, 44, 0.16);
+
+            border-radius: 18px;
+
+            color: var(--mix-text);
+            background: var(--mix-color);
+
+            font: inherit;
+            font-size: 17px;
+            font-weight: 700;
+
+            cursor: pointer;
+
+            box-shadow:
+                0 4px 13px
+                rgba(var(--mix-rgb), 0.22);
+
+            transition:
+                background-color 0.22s ease,
+                color 0.22s ease,
+                box-shadow 0.22s ease,
+                transform 0.12s ease;
+        }
+
+
+        .create-button:active {
+            transform: scale(0.98);
+        }
+
+
+        .create-button:disabled {
+            cursor: default;
+            opacity: 0.78;
+        }
+
+
+        .create-inner {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+
+            gap: 9px;
+        }
+
+
+        .play-icon {
+            font-size: 16px;
+        }
+
+
+        /* -------------------------
+           Short screen adjustment
+        ------------------------- */
+
+        @media (max-height: 760px) {
+
+            .screen {
+                padding-top: 10px;
+                padding-bottom: 10px;
+            }
+
+
+            h1 {
+                margin-bottom: 10px;
+
+                font-size: 27px;
+            }
+
+
+            form {
+                gap: 7px;
+            }
+
+
+            .control-card {
+                padding:
+                    7px
+                    11px;
+            }
+
+
+            .duration-card {
+                flex-basis: 75px;
+            }
+
+
+            .random-button {
+                flex-basis: 44px;
+            }
+
+
+            .create-button {
+                flex-basis: 52px;
+            }
+
+        }
+
+    </style>
 </head>
+
 
 <body>
 
-<main>
+<div class="screen">
 
-    <h1>TunePalette</h1>
+    <main class="content">
 
-    <p>
-        今日の気分に合わせて、
-        プレイリストをブレンドします。
-    </p>
-
-
-    <form
-    id="playlist-form"
-    action="/create-playlist"
-    method="post"
->
-
-        <!-- 気分 -->
-        <section>
-
-            <h2>
-                気分：
-                <span id="mood-value">50</span>
-            </h2>
-
-            <div>
-
-                <span>落ち着く</span>
-
-                <input
-                    type="range"
-                    id="mood"
-                    name="mood"
-                    min="0"
-                    max="100"
-                    value="50"
-                >
-
-                <span>激しめ</span>
-
-            </div>
-
-        </section>
+        <h1>
+            Tune<span class="palette-text">Palette</span>
+        </h1>
 
 
-        <!-- 知らない曲 -->
-        <section>
-
-    <h2>
-        FAVORITE
-        <span id="favorite-value">60</span>%
-        /
-        DISCOVERED
-        <span id="discovery-value">40</span>%
-    </h2>
-
-    <div>
-
-        <span>FAVORITE</span>
-
-        <input
-            type="range"
-            id="discovery_ratio"
-            name="discovery_ratio"
-            min="0"
-            max="100"
-            value="40"
+        <form
+            id="playlist-form"
+            action="/create-playlist"
+            method="post"
         >
 
-        <span>DISCOVERED</span>
 
-    </div>
+            <!-- Mood -->
+            <section class="control-card">
 
-</section>
-
-
-        <!-- 最近の曲 -->
-        <section>
-
-            <h2>
-                最近の曲：
-                <span id="recency-value">50</span>
-            </h2>
-
-            <div>
-
-                <span>年代広め</span>
-
-                <input
-                    type="range"
-                    id="recency"
-                    name="recency"
-                    min="0"
-                    max="100"
-                    value="50"
+                <div
+                    class="card-icon"
+                    aria-hidden="true"
                 >
+                    <svg viewBox="0 0 24 24">
+                        <path
+                            d="
+                                M6.5 18
+                                H17
+                                A4 4 0 0 0 17 10
+                                A5.5 5.5 0 0 0 6.5 9
+                                A4.5 4.5 0 0 0 6.5 18
+                            "
+                        />
+                    </svg>
+                </div>
 
-                <span>最近中心</span>
 
-            </div>
+                <div class="control-main">
 
-        </section>
+                    <p class="control-title">
+                        Mood:
+                        <span id="mood-value">
+                            50
+                        </span>
+                    </p>
 
 
-        <!-- 再生時間 -->
-        <section>
+                    <input
+                        type="range"
+                        id="mood"
+                        name="mood"
+                        min="0"
+                        max="100"
+                        value="50"
+                    >
 
-            <h2>再生時間</h2>
 
-            <label>
-                <input
-                    type="radio"
-                    name="duration"
-                    value="30"
+                    <div class="labels">
+                        <span>Calm</span>
+                        <span>Intense</span>
+                    </div>
+
+                </div>
+
+            </section>
+
+
+            <!-- Favorite / Discovered -->
+            <section class="control-card">
+
+                <div
+                    class="card-icon"
+                    aria-hidden="true"
                 >
-                30分
-            </label>
+                    <svg viewBox="0 0 24 24">
+                        <path
+                            d="
+                                M12 20
+                                S4 15
+                                4 9
+                                A4 4 0 0 1 11 6.5
+                                L12 8
+                                L13 6.5
+                                A4 4 0 0 1 20 9
+                                C20 15 12 20 12 20
+                            "
+                        />
+                    </svg>
+                </div>
 
-            <label>
-                <input
-                    type="radio"
-                    name="duration"
-                    value="60"
-                    checked
+
+                <div class="control-main">
+
+                    <p
+                        class="
+                            control-title
+                            blend-title
+                        "
+                    >
+                        FAVORITE
+                        <span id="favorite-value">
+                            60
+                        </span>%
+                        /
+                        DISCOVERED
+                        <span id="discovery-value">
+                            40
+                        </span>%
+                    </p>
+
+
+                    <input
+                        type="range"
+                        id="discovery_ratio"
+                        name="discovery_ratio"
+                        min="0"
+                        max="100"
+                        value="40"
+                    >
+
+
+                    <div class="labels">
+                        <span>FAVORITE</span>
+                        <span>DISCOVERED</span>
+                    </div>
+
+                </div>
+
+            </section>
+
+
+            <!-- Recent -->
+            <section class="control-card">
+
+                <div
+                    class="card-icon"
+                    aria-hidden="true"
                 >
-                60分
-            </label>
+                    <svg viewBox="0 0 24 24">
+                        <circle
+                            cx="12"
+                            cy="12"
+                            r="8"
+                        />
 
-            <label>
-                <input
-                    type="radio"
-                    name="duration"
-                    value="90"
+                        <path
+                            d="
+                                M12 7
+                                V12
+                                L15 14
+                            "
+                        />
+                    </svg>
+                </div>
+
+
+                <div class="control-main">
+
+                    <p class="control-title">
+                        Recent:
+                        <span id="recency-value">
+                            50
+                        </span>
+                    </p>
+
+
+                    <input
+                        type="range"
+                        id="recency"
+                        name="recency"
+                        min="0"
+                        max="100"
+                        value="50"
+                    >
+
+
+                    <div class="labels">
+                        <span>Wide Range</span>
+                        <span>Latest</span>
+                    </div>
+
+                </div>
+
+            </section>
+
+
+            <!-- Duration -->
+            <section
+                class="
+                    control-card
+                    duration-card
+                "
+            >
+
+                <div
+                    class="card-icon"
+                    aria-hidden="true"
                 >
-                90分
-            </label>
+                    <svg viewBox="0 0 24 24">
 
-            <label>
-                <input
-                    type="radio"
-                    name="duration"
-                    value="120"
-                >
-                120分
-            </label>
+                        <path
+                            d="
+                                M7 3
+                                H17
+                                M7 21
+                                H17
+                            "
+                        />
 
-        </section>
+                        <path
+                            d="
+                                M8 4
+                                C8 8
+                                11 9
+                                12 12
+                                C13 15
+                                16 16
+                                16 20
+
+                                M16 4
+                                C16 8
+                                13 9
+                                12 12
+                                C11 15
+                                8 16
+                                8 20
+                            "
+                        />
+
+                    </svg>
+                </div>
 
 
-        <!-- おまかせ -->
-        <p>
+                <div class="control-main">
+
+                    <p class="control-title">
+                        Duration
+                    </p>
+
+
+                    <div class="duration-options">
+
+                        <input
+                            type="radio"
+                            id="duration-30"
+                            name="duration"
+                            value="30"
+                        >
+
+                        <label for="duration-30">
+                            30 MIN
+                        </label>
+
+
+                        <input
+                            type="radio"
+                            id="duration-60"
+                            name="duration"
+                            value="60"
+                            checked
+                        >
+
+                        <label for="duration-60">
+                            60 MIN
+                        </label>
+
+
+                        <input
+                            type="radio"
+                            id="duration-90"
+                            name="duration"
+                            value="90"
+                        >
+
+                        <label for="duration-90">
+                            90 MIN
+                        </label>
+
+
+                        <input
+                            type="radio"
+                            id="duration-120"
+                            name="duration"
+                            value="120"
+                        >
+
+                        <label for="duration-120">
+                            120 MIN
+                        </label>
+
+                    </div>
+
+                </div>
+
+            </section>
+
+
+            <!-- Random -->
             <button
                 type="button"
                 id="random-button"
+                class="random-button"
             >
-                おまかせ
+                <span
+                    class="random-icon"
+                    aria-hidden="true"
+                >
+                    ⚄
+                </span>
+
+                <span>
+                    Random
+                </span>
             </button>
-        </p>
 
 
-        <!-- 生成 -->
-        <p>
+            <!-- Create -->
             <button
                 type="submit"
                 id="create-button"
+                class="create-button"
             >
-                プレイリストを作る
+
+                <span class="create-inner">
+
+                    <span
+                        class="play-icon"
+                        aria-hidden="true"
+                    >
+                        ▶
+                    </span>
+
+                    <span id="create-text">
+                        Create Playlist
+                    </span>
+
+                </span>
+
             </button>
-        </p>
 
+        </form>
 
-        <!-- 生成中表示 -->
-        <p
-            id="loading-message"
-            hidden
-        >
-            プレイリストを生成しています...
-        </p>
+    </main>
 
-    </form>
-
-</main>
+</div>
 
 
 <script>
 
-    // -------------------------
-    // スライダー
-    // -------------------------
-
     const moodSlider =
-        document.getElementById("mood");
+        document.getElementById(
+            "mood"
+        );
 
     const discoverySlider =
         document.getElementById(
@@ -212,12 +871,10 @@
         );
 
     const recencySlider =
-        document.getElementById("recency");
+        document.getElementById(
+            "recency"
+        );
 
-
-    // -------------------------
-    // 現在値の表示
-    // -------------------------
 
     const moodValue =
         document.getElementById(
@@ -230,19 +887,15 @@
         );
 
     const favoriteValue =
-    document.getElementById(
-        "favorite-value"
-    );
+        document.getElementById(
+            "favorite-value"
+        );
 
     const recencyValue =
         document.getElementById(
             "recency-value"
         );
 
-
-    // -------------------------
-    // ボタン・フォーム
-    // -------------------------
 
     const randomButton =
         document.getElementById(
@@ -259,125 +912,346 @@
             "create-button"
         );
 
-    const loadingMessage =
+    const createText =
         document.getElementById(
-            "loading-message"
+            "create-text"
         );
 
 
-    // -------------------------
-    // スライダーの値表示
-    // -------------------------
+    /*
+     * 数値を範囲内に収める
+     */
+    function clamp(
+        value,
+        min,
+        max
+    ) {
 
-    moodSlider.addEventListener(
-        "input",
-        function () {
+        return Math.min(
+            Math.max(value, min),
+            max
+        );
+    }
 
-            moodValue.textContent =
-                moodSlider.value;
-        }
+
+    /*
+     * 2つの数値の間を補間する
+     */
+    function lerp(
+        start,
+        end,
+        amount
+    ) {
+
+        return (
+            start
+            + (
+                end - start
+            ) * amount
+        );
+    }
+
+
+    /*
+     * TunePaletteの混色処理
+     *
+     * 3本すべて0
+     * → オフホワイト
+     *
+     * 3本すべて100
+     * → チャコール
+     *
+     * 値に偏りがある場合だけ、
+     * 少し色味を加える
+     */
+    function updatePaletteColor() {
+
+    const mood =
+        Number(moodSlider.value) / 100;
+
+    const blend =
+        Number(discoverySlider.value) / 100;
+
+    const recent =
+        Number(recencySlider.value) / 100;
+
+
+    /*
+     * 3色をどれだけ混ぜたか。
+     *
+     * 0 / 0 / 0
+     * → 0
+     *
+     * 100 / 100 / 100
+     * → 1
+     */
+    const mixLevel =
+        (
+            mood
+            + blend
+            + recent
+        )
+        / 3;
+
+
+    /*
+     * 中間までは明るめに保ち、
+     * 3色を強く混ぜるほど
+     * 最後に暗くなるようカーブを付ける。
+     */
+    const darkness =
+        Math.pow(
+            mixLevel,
+            1.35
+        );
+
+
+    /*
+     * 何も混ぜていない状態
+     */
+    const light = [
+        248,
+        246,
+        240
+    ];
+
+
+    /*
+     * 3色とも100のときの
+     * 黒に近いグレー
+     */
+    const dark = [
+        34,
+        34,
+        34
+    ];
+
+
+    let red =
+        lerp(
+            light[0],
+            dark[0],
+            darkness
+        );
+
+    let green =
+        lerp(
+            light[1],
+            dark[1],
+            darkness
+        );
+
+    let blue =
+        lerp(
+            light[2],
+            dark[2],
+            darkness
+        );
+
+
+    /*
+     * Mood
+     * → 赤
+     */
+    red += 30 * mood;
+    green -= 18 * mood;
+    blue -= 18 * mood;
+
+
+    /*
+     * 2本目
+     * → 緑
+     */
+    red -= 18 * blend;
+    green += 30 * blend;
+    blue -= 18 * blend;
+
+
+    /*
+     * Recent
+     * → 青
+     */
+    red -= 18 * recent;
+    green -= 18 * recent;
+    blue += 30 * recent;
+
+
+    red = Math.round(
+        clamp(
+            red,
+            0,
+            255
+        )
+    );
+
+    green = Math.round(
+        clamp(
+            green,
+            0,
+            255
+        )
+    );
+
+    blue = Math.round(
+        clamp(
+            blue,
+            0,
+            255
+        )
     );
 
 
-    discoverySlider.addEventListener(
-    "input",
-    function () {
+    const root =
+        document.documentElement;
+
+
+    root.style.setProperty(
+        "--mix-color",
+        `rgb(${red}, ${green}, ${blue})`
+    );
+
+
+    root.style.setProperty(
+        "--mix-rgb",
+        `${red}, ${green}, ${blue}`
+    );
+
+
+    /*
+     * Create Playlistボタンの文字色。
+     * 明るい背景なら黒、
+     * 暗くなったら白。
+     */
+    const luminance =
+        (
+            red * 0.299
+            + green * 0.587
+            + blue * 0.114
+        );
+
+
+    const textColor =
+        luminance > 150
+            ? "#2e2d2a"
+            : "#f8f6f1";
+
+
+    root.style.setProperty(
+        "--mix-text",
+        textColor
+    );
+}
+
+    /*
+     * 表示値と色をまとめて更新
+     */
+    function updateInterface() {
+
+        const mood =
+            Number(
+                moodSlider.value
+            );
 
         const discovery =
-            Number(discoverySlider.value);
+            Number(
+                discoverySlider.value
+            );
 
-        const favorite =
-            100 - discovery;
+        const recent =
+            Number(
+                recencySlider.value
+            );
+
+
+        moodValue.textContent =
+            mood;
 
         discoveryValue.textContent =
             discovery;
 
         favoriteValue.textContent =
-            favorite;
+            100 - discovery;
+
+        recencyValue.textContent =
+            recent;
+
+
+        updatePaletteColor();
     }
-);
+
+
+    moodSlider.addEventListener(
+        "input",
+        updateInterface
+    );
+
+
+    discoverySlider.addEventListener(
+        "input",
+        updateInterface
+    );
 
 
     recencySlider.addEventListener(
         "input",
-        function () {
-
-            recencyValue.textContent =
-                recencySlider.value;
-        }
+        updateInterface
     );
 
 
-    // -------------------------
-    // おまかせ
-    // -------------------------
-
+    /*
+     * Random
+     *
+     * 再生時間は変更せず、
+     * 3本のスライダーだけランダム化
+     */
     randomButton.addEventListener(
         "click",
         function () {
 
-            const randomMood =
-                Math.floor(
-                    Math.random() * 101
-                );
-
-            const randomDiscovery =
-                Math.floor(
-                    Math.random() * 101
-                );
-
-            const randomRecency =
-                Math.floor(
-                    Math.random() * 101
-                );
-
-
-            // スライダーを変更
             moodSlider.value =
-                randomMood;
+                Math.floor(
+                    Math.random()
+                    * 101
+                );
 
             discoverySlider.value =
-                randomDiscovery;
+                Math.floor(
+                    Math.random()
+                    * 101
+                );
 
             recencySlider.value =
-                randomRecency;
+                Math.floor(
+                    Math.random()
+                    * 101
+                );
 
 
-            // 表示している数字も変更
-            moodValue.textContent =
-                randomMood;
-
-            discoveryValue.textContent =
-    randomDiscovery;
-
-favoriteValue.textContent =
-    100 - randomDiscovery;
-
-            recencyValue.textContent =
-                randomRecency;
+            updateInterface();
         }
     );
 
 
-    // -------------------------
-    // プレイリスト生成開始
-    // -------------------------
-
+    /*
+     * プレイリスト生成開始
+     */
     playlistForm.addEventListener(
         "submit",
         function () {
 
-            // 二重クリック防止
-            createButton.disabled = true;
+            createButton.disabled =
+                true;
 
-            // ボタン表示変更
-            createButton.textContent =
-                "生成中...";
-
-            // メッセージ表示
-            loadingMessage.hidden = false;
+            createText.textContent =
+                "Mixing...";
         }
     );
+
+
+    /*
+     * 初期表示
+     */
+    updateInterface();
 
 </script>
 

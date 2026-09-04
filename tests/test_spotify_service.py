@@ -480,6 +480,245 @@ class SpotifyServiceTest(unittest.TestCase):
             ]
         )
 
+    @patch("spotify_service.spotipy.Spotify")
+    def test_get_available_devices(
+            self,
+            mock_spotify_class
+    ):
+        mock_spotify = MagicMock()
+        mock_spotify_class.return_value = mock_spotify
+
+        mock_spotify.devices.return_value = {
+            "devices": [
+                {
+                    "id": "iphone123",
+                    "name": "Kazuma's iPhone",
+                    "type": "Smartphone",
+                    "is_active": True
+                },
+                {
+                    "id": "pc456",
+                    "name": "Windows PC",
+                    "type": "Computer",
+                    "is_active": False
+                }
+            ]
+        }
+
+        service = SpotifyService(
+            auth_manager=None
+        )
+
+        devices = (
+            service.get_available_devices()
+        )
+
+        self.assertEqual(
+            len(devices),
+            2
+        )
+
+        self.assertEqual(
+            devices[0],
+            {
+                "id": "iphone123",
+                "name": "Kazuma's iPhone",
+                "type": "Smartphone",
+                "is_active": True
+            }
+        )
+
+        self.assertEqual(
+            devices[1]["type"],
+            "Computer"
+        )
+
+        mock_spotify.devices.assert_called_once_with()
+
+    @patch("spotify_service.spotipy.Spotify")
+    def test_select_preferred_device_prefers_active_smartphone(
+            self,
+            mock_spotify_class
+    ):
+        service = SpotifyService(
+            auth_manager=None
+        )
+
+        devices = [
+            {
+                "id": "iphone123",
+                "name": "iPhone",
+                "type": "Smartphone",
+                "is_active": True
+            },
+            {
+                "id": "pc456",
+                "name": "Windows PC",
+                "type": "Computer",
+                "is_active": True
+            }
+        ]
+
+        selected = (
+            service.select_preferred_device(
+                devices
+            )
+        )
+
+        self.assertEqual(
+            selected["id"],
+            "iphone123"
+        )
+
+
+    @patch("spotify_service.spotipy.Spotify")
+    def test_select_preferred_device_prefers_smartphone_over_active_pc(
+            self,
+            mock_spotify_class
+    ):
+        service = SpotifyService(
+            auth_manager=None
+        )
+
+        devices = [
+            {
+                "id": "pc456",
+                "name": "Windows PC",
+                "type": "Computer",
+                "is_active": True
+            },
+            {
+                "id": "iphone123",
+                "name": "iPhone",
+                "type": "Smartphone",
+                "is_active": False
+            }
+        ]
+
+        selected = (
+            service.select_preferred_device(
+                devices
+            )
+        )
+
+        self.assertEqual(
+            selected["id"],
+            "iphone123"
+        )
+
+
+    @patch("spotify_service.spotipy.Spotify")
+    def test_select_preferred_device_uses_active_device_when_no_smartphone(
+            self,
+            mock_spotify_class
+    ):
+        service = SpotifyService(
+            auth_manager=None
+        )
+
+        devices = [
+            {
+                "id": "pc456",
+                "name": "Windows PC",
+                "type": "Computer",
+                "is_active": True
+            }
+        ]
+
+        selected = (
+            service.select_preferred_device(
+                devices
+            )
+        )
+
+        self.assertEqual(
+            selected["id"],
+            "pc456"
+        )
+
+
+    @patch("spotify_service.spotipy.Spotify")
+    def test_select_preferred_device_returns_none_when_no_device_available(
+            self,
+            mock_spotify_class
+    ):
+        service = SpotifyService(
+            auth_manager=None
+        )
+
+        devices = []
+
+        selected = (
+            service.select_preferred_device(
+                devices
+            )
+        )
+
+        self.assertIsNone(
+            selected
+        )
+
+    @patch("spotify_service.spotipy.Spotify")
+    def test_play_playlist_starts_playback_on_preferred_device(
+            self,
+            mock_spotify_class
+    ):
+        mock_spotify = MagicMock()
+        mock_spotify_class.return_value = mock_spotify
+
+        mock_spotify.devices.return_value = {
+            "devices": [
+                {
+                    "id": "iphone123",
+                    "name": "iPhone",
+                    "type": "Smartphone",
+                    "is_active": True
+                }
+            ]
+        }
+
+        service = SpotifyService(
+            auth_manager=None
+        )
+
+        result = service.play_playlist(
+            "playlist123"
+        )
+
+        self.assertTrue(result)
+
+        mock_spotify.start_playback.assert_called_once_with(
+            device_id="iphone123",
+            context_uri=(
+                "spotify:playlist:"
+                "playlist123"
+            )
+        )
+
+
+    @patch("spotify_service.spotipy.Spotify")
+    def test_play_playlist_returns_false_when_no_device_available(
+            self,
+            mock_spotify_class
+    ):
+        mock_spotify = MagicMock()
+        mock_spotify_class.return_value = mock_spotify
+
+        mock_spotify.devices.return_value = {
+            "devices": []
+        }
+
+        service = SpotifyService(
+            auth_manager=None
+        )
+
+        result = service.play_playlist(
+            "playlist123"
+        )
+
+        self.assertFalse(result)
+
+        mock_spotify.start_playback.assert_not_called()
 
 if __name__ == "__main__":
     unittest.main()

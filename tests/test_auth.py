@@ -27,6 +27,46 @@ class AuthTest(unittest.TestCase):
 
         self.client = app_module.app.test_client()
 
+    def test_index_redirects_to_settings(self):
+        response = self.client.get(
+            "/",
+            follow_redirects=False
+        )
+
+        self.assertEqual(
+            response.status_code,
+            302
+        )
+
+        self.assertTrue(
+            response.headers["Location"].endswith(
+                "/settings"
+            )
+        )
+
+
+    def test_settings_opens_when_authorized(self):
+        # ブラウザ側を本人確認済みにする
+        with self.client.session_transaction() as session:
+            session["authorized"] = True
+
+        # サーバー側にもSpotify Tokenがある状態
+        with patch.object(
+            app_module.spotify_token_cache,
+            "get_cached_token",
+            return_value={
+                "access_token": "test-token"
+            }
+        ):
+            response = self.client.get(
+                "/settings"
+            )
+
+        self.assertEqual(
+            response.status_code,
+            200
+        )
+
     def test_playlists_requires_authorized_session(self):
         response = self.client.get(
             "/playlists",

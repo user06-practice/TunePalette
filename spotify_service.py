@@ -141,6 +141,131 @@ class SpotifyService:
 
         return tracks
 
+    def get_available_devices(self):
+
+        results = self.spotify.devices()
+
+        devices = []
+
+        for device in results.get("devices", []):
+            devices.append({
+                "id": device.get("id"),
+                "name": device.get("name"),
+                "type": device.get("type"),
+                "is_active": device.get(
+                    "is_active",
+                    False
+                ),
+            })
+
+        return devices
+
+    def select_preferred_device(
+            self,
+            devices
+    ):
+        # device_idがないものは
+        # 再生先として使用できないため除外
+        valid_devices = [
+            device
+            for device in devices
+            if device.get("id")
+        ]
+
+        # -------------------------
+        # ① activeなスマホを最優先
+        # -------------------------
+
+        for device in valid_devices:
+
+            device_type = (
+                device.get("type", "")
+                .casefold()
+            )
+
+            if (
+                    device_type == "smartphone"
+                    and device.get("is_active")
+            ):
+                return device
+
+        # -------------------------
+        # ② その他のスマホ
+        # -------------------------
+
+        for device in valid_devices:
+
+            device_type = (
+                device.get("type", "")
+                .casefold()
+            )
+
+            if device_type == "smartphone":
+                return device
+
+        # -------------------------
+        # ③ activeなデバイス
+        # -------------------------
+
+        for device in valid_devices:
+
+            if device.get("is_active"):
+                return device
+
+        # -------------------------
+        # ④ 再生先なし
+        # -------------------------
+
+        return None
+
+    def play_playlist(
+            self,
+            playlist_id
+    ):
+        if not playlist_id:
+            raise ValueError(
+                "playlist_idを指定してください。"
+            )
+
+        # -------------------------
+        # 再生可能デバイスを取得
+        # -------------------------
+
+        devices = (
+            self.get_available_devices()
+        )
+
+        # -------------------------
+        # スマホ優先で再生先を選択
+        # -------------------------
+
+        device = (
+            self.select_preferred_device(
+                devices
+            )
+        )
+
+        # -------------------------
+        # 再生先がない
+        # -------------------------
+
+        if device is None:
+            return False
+
+        # -------------------------
+        # TunePaletteを再生
+        # -------------------------
+
+        self.spotify.start_playback(
+            device_id=device["id"],
+            context_uri=(
+                f"spotify:playlist:"
+                f"{playlist_id}"
+            )
+        )
+
+        return True
+
     def get_current_account(self):
         user = self.spotify.current_user()
 

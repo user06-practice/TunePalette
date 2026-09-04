@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>TunePalette</title>
+
+    <style>
+
+        * {
+            box-sizing: border-box;
+        }
+
+        html,
+        body {
+            margin: 0;
+            width: 100%;
+            height: 100%;
+        }
+
+        body {
+            font-family:
+                -apple-system,
+                BlinkMacSystemFont,
+                "Segoe UI",
+                sans-serif;
+
+            background: #dedbd4;
+            color: #2e2d2a;
+        }
+
+        .screen {
+            width: 100%;
+            max-width: 430px;
+            height: 100dvh;
+
+            margin: 0 auto;
+
+            padding:
+                max(24px, env(safe-area-inset-top))
+                22px
+                max(22px, env(safe-area-inset-bottom));
+
+            background: #f3f1eb;
+
+            display: flex;
+            flex-direction: column;
+        }
+
+        .title {
+            margin: 4px 0 0;
+
+            text-align: center;
+
+            font-size: 31px;
+            font-weight: 650;
+            letter-spacing: -1px;
+        }
+
+        .title span {
+            color: #8f8c86;
+        }
+
+        .error-content {
+            flex: 1;
+
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+
+            text-align: center;
+        }
+
+        .error-mark {
+            width: 76px;
+            height: 76px;
+
+            display: flex;
+            align-items: center;
+            justify-content: center;
+
+            margin-bottom: 24px;
+
+            border-radius: 50%;
+
+            background: #e3e0d9;
+
+            color: #5e5a54;
+
+            font-size: 34px;
+            font-weight: 600;
+        }
+
+        h1 {
+            margin: 0;
+
+            font-size: 27px;
+            font-weight: 650;
+        }
+
+        .message {
+            margin:
+                12px
+                0
+                0;
+
+            color: #77736b;
+
+            font-size: 15px;
+            line-height: 1.5;
+        }
+
+        .back-button {
+            width: 100%;
+            min-height: 58px;
+
+            border-radius: 18px;
+
+            display: flex;
+            align-items: center;
+            justify-content: center;
+
+            gap: 9px;
+
+            color: #2e2d2a;
+            background: #faf9f5;
+
+            border:
+                1px solid
+                rgba(63, 60, 55, 0.14);
+
+            text-decoration: none;
+
+            font-size: 17px;
+            font-weight: 700;
+        }
+
+        .back-button:active {
+            transform: scale(0.98);
+        }
+
+    </style>
+</head>
+
+
+<body>
+
+<div class="screen">
+
+    <header>
+        <p class="title">
+            Tune<span>Palette</span>
+        </p>
+    </header>
+
+
+    <main class="error-content">
+
+        <div
+            class="error-mark"
+            aria-hidden="true"
+        >
+            !
+        </div>
+
+        <h1>
+            Something Went Wrong
+        </h1>
+
+        <p class="message">
+            The playlist could not be created.<br>
+            Please try again.
+        </p>
+
+    </main>
+
+
+    <a
+        class="back-button"
+        href="/settings"
+    >
+        ← Back to Settings
+    </a>
+
+</div>
+
+</body>
+
+</html>
